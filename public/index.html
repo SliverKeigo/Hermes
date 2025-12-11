@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes 控制台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-layer-group text-blue-600"></i> Hermes AI Gateway
+                </h1>
+                <p class="text-gray-600 mt-1">多模型聚合網關控制台</p>
+            </div>
+            <button onclick="fetchProviders()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
+                <i class="fa-solid fa-rotate-right"></i> 刷新列表
+            </button>
+        </header>
+
+        <!-- 添加提供商表單 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+            <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-plus-circle text-blue-500"></i> 添加新的服務站
+            </h2>
+            <form id="addProviderForm" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">名稱 (Name)</label>
+                        <input type="text" id="name" placeholder="例如: Official OpenAI" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
+                        <input type="url" id="baseUrl" placeholder="https://api.openai.com/v1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
+                    <input type="password" id="apiKey" placeholder="sk-..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                </div>
+                <div class="bg-blue-50 p-3 rounded text-sm text-blue-700">
+                    <i class="fa-solid fa-info-circle mr-1"></i> 添加後，系統將在後台自動異步檢測並過濾可用模型。
+                </div>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-medium">
+                    添加並啟動後台同步
+                </button>
+            </form>
+        </div>
+
+        <!-- 提供商列表 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                    <i class="fa-solid fa-server text-green-600"></i> 已配置的服務站
+                </h2>
+                <span id="providerCount" class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-mono">0 個節點</span>
+            </div>
+            
+            <div id="providerList" class="space-y-4">
+                <p class="text-gray-500 text-center py-8">正在加載數據...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/admin';
+
+        // 狀態樣式映射
+        const STATUS_MAP = {
+            'pending': { color: 'bg-gray-100 text-gray-600', icon: 'fa-clock', label: '等待中' },
+            'syncing': { color: 'bg-yellow-100 text-yellow-700', icon: 'fa-spinner fa-spin', label: '同步檢測中...' },
+            'active':  { color: 'bg-green-100 text-green-700', icon: 'fa-check-circle', label: '活躍 (Active)' },
+            'error':   { color: 'bg-red-100 text-red-700', icon: 'fa-exclamation-triangle', label: '同步失敗' }
+        };
+
+        // 渲染提供商列表
+        async function fetchProviders() {
+            const list = document.getElementById('providerList');
+            const countBadge = document.getElementById('providerCount');
+            
+            try {
+                const res = await fetch(`${API_BASE}/providers`);
+                const { data } = await res.json();
+                
+                countBadge.innerText = `${data.length} 個節點`;
+                list.innerHTML = '';
+
+                if (data.length === 0) {
+                    list.innerHTML = `
+                        <div class="text-center py-12 bg-gray-50 rounded border border-dashed border-gray-300">
+                            <i class="fa-regular fa-folder-open text-4xl text-gray-300 mb-3"></i>
+                            <p class="text-gray-500">暫無服務站，請在上方添加。</p>
+                        </div>`;
+                    return;
+                }
+
+                data.forEach(provider => {
+                    const statusConfig = STATUS_MAP[provider.status] || STATUS_MAP['pending'];
+                    
+                    // 模型列表渲染邏輯
+                    let modelsHtml = '';
+                    if (provider.status === 'active') {
+                        modelsHtml = provider.models.length > 0 
+                            ? `<div class="flex flex-wrap gap-2 mt-3">
+                                ${provider.models.map(m => `<span class="px-2 py-1 bg-gray-100 border border-gray-200 text-gray-700 text-xs rounded font-mono">${m}</span>`).join('')}
+                               </div>`
+                            : `<div class="mt-2 text-sm text-yellow-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i> 同步成功但未過濾出可用 Chat 模型</div>`;
+                    } else if (provider.status === 'syncing') {
+                        modelsHtml = `<div class="mt-3 text-sm text-blue-600 flex items-center animate-pulse">
+                            <i class="fa-solid fa-microchip mr-2"></i> 正在後台檢測模型可用性...
+                        </div>`;
+                    } else if (provider.status === 'error') {
+                        modelsHtml = `<div class="mt-3 text-sm text-red-600">
+                            <i class="fa-solid fa-xmark mr-1"></i> 連接上游失敗，請檢查 Key 或 BaseURL
+                        </div>`;
+                    }
+
+                    const timeAgo = new Date(provider.createdAt).toLocaleString();
+
+                    const el = document.createElement('div');
+                    el.className = 'border border-gray-200 rounded-lg p-5 hover:shadow-md transition bg-white relative overflow-hidden group';
+                    el.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div class="flex-1">
+                                <div class="flex items-center gap-3 mb-1">
+                                    <h3 class="font-bold text-lg text-gray-800">${provider.name}</h3>
+                                    <span class="px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${statusConfig.color}">
+                                        <i class="fa-solid ${statusConfig.icon}"></i> ${statusConfig.label}
+                                    </span>
+                                </div>
+                                <p class="text-sm text-gray-500 font-mono flex items-center gap-2">
+                                    <i class="fa-solid fa-link text-gray-300"></i> ${provider.baseUrl}
+                                </p>
+                                
+                                ${modelsHtml}
+                                
+                                <div class="mt-4 text-xs text-gray-400">
+                                    ID: ${provider.id} • 創建於: ${timeAgo}
+                                </div>
+                            </div>
+                            <div class="ml-4 flex flex-col gap-2">
+                                <button onclick="deleteProvider('${provider.id}')" class="text-gray-400 hover:text-red-600 transition p-2 rounded hover:bg-red-50" title="刪除">
+                                    <i class="fa-solid fa-trash-can"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    list.appendChild(el);
+                });
+            } catch (err) {
+                console.error(err);
+                list.innerHTML = '<p class="text-red-500 text-center">無法連接到服務器</p>';
+            }
+        }
+
+        // 添加提供商
+        document.getElementById('addProviderForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const btn = e.target.querySelector('button');
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 提交中...';
+
+            const payload = {
+                name: document.getElementById('name').value,
+                baseUrl: document.getElementById('baseUrl').value,
+                apiKey: document.getElementById('apiKey').value
+            };
+
+            try {
+                const res = await fetch(`${API_BASE}/providers`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    document.getElementById('addProviderForm').reset();
+                    // 立即刷新列表，用戶會看到 "Syncing" 狀態
+                    fetchProviders();
+                    
+                    // 可選：幾秒後自動再刷新一次以顯示結果
+                    setTimeout(fetchProviders, 2000);
+                } else {
+                    alert('添加失敗: ' + (result.error || '未知錯誤'));
+                }
+            } catch (err) {
+                alert('網絡錯誤');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = originalText;
+            }
+        });
+
+        // 刪除提供商
+        window.deleteProvider = async (id) => {
+            if (!confirm('確定要刪除此服務站嗎？')) return;
+            await fetch(`${API_BASE}/providers/${id}`, { method: 'DELETE' });
+            fetchProviders();
+        };
+
+        // 初始加載
+        fetchProviders();
+        
+        // 簡單的自動輪詢 (每5秒更新一次狀態)
+        setInterval(fetchProviders, 5000);
+    </script>
+</body>
+</html>

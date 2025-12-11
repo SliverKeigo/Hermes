@@ -40,3 +40,11 @@ yarn-error.log*
 **/*.log
 package-lock.json
 **/*.bun
+
+GEMINI.md
+.GEMINI
+.codex
+.vscode
+.idea
+.claude
+docs
