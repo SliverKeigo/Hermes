@@ -99,8 +99,54 @@
 
     <script>
         const API_BASE = '/admin';
+        const MODEL_API = '/v1/models';
 
+        const modelSelect = document.getElementById('modelSelect');
+        const apiKeyInput = document.getElementById('apiKey');
+        const sendBtn = document.getElementById('sendBtn');
 
+        function setModelLoading() {
+            modelSelect.innerHTML = `<option value="" disabled selected>加载中...</option>`;
+            modelSelect.disabled = true;
+        }
+
+        async function loadModels() {
+            const key = apiKeyInput.value.trim();
+            if (!key) {
+                alert('请先填写 Hermes Key');
+                return;
+            }
+            setModelLoading();
+            try {
+                const res = await fetch(MODEL_API, {
+                    headers: { 'Authorization': key.startsWith('Bearer ') ? key : `Bearer ${key}` }
+                });
+                if (!res.ok) throw new Error(`上游返回 ${res.status}`);
+                const data = await res.json();
+                const models = data?.data || [];
+                modelSelect.innerHTML = '';
+                if (!models.length) {
+                    modelSelect.innerHTML = `<option value="" disabled selected>暂无模型</option>`;
+                    modelSelect.disabled = true;
+                    return;
+                }
+                models.forEach(m => {
+                    const opt = document.createElement('option');
+                    opt.value = m.id;
+                    opt.textContent = m.id;
+                    modelSelect.appendChild(opt);
+                });
+                modelSelect.disabled = false;
+                modelSelect.selectedIndex = 0;
+            } catch (err) {
+                modelSelect.innerHTML = `<option value="" disabled selected>加载失败</option>`;
+                modelSelect.disabled = true;
+                console.error(err);
+                alert(`加载模型失败：${err.message}`);
+            }
+        }
+
+        // 初始化
         loadModels();
     </script>
 </body>
