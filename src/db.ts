@@ -43,6 +43,14 @@ db.exec(`
     message TEXT, -- 錯誤信息或備註
     createdAt INTEGER
   );
+
+  CREATE TABLE IF NOT EXISTS hermes_keys (
+    id TEXT PRIMARY KEY,
+    key_hash TEXT NOT NULL, -- 存储 key 的哈希值，而不是明文
+    description TEXT,
+    createdAt INTEGER,
+    lastUsedAt INTEGER
+  );
 `);
 
 logger.info("SQLite 數據庫已連接並初始化 (hermes.db)");
