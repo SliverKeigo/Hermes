@@ -2,6 +2,71 @@ import { db } from "../db";
 import { RequestLog, SyncLog, RequestLogFilters, SyncLogFilters } from "../types";
 
 export class LogService {
+  private static counters = {
+    upstreamErrors: 0,
+    cooldowns: 0,
+    retryExhausted: 0,
+  };
+
+  private static usage = {
+    models: new Map<string, number>(),
+    providers: new Map<string, { count: number; name: string }>(),
+    providerErrors: new Map<string, number>(),
+  };
+
+  private static incModel(model: string | undefined) {
+    if (!model) return;
+    const next = (this.usage.models.get(model) ?? 0) + 1;
+    this.usage.models.set(model, next);
+  }
+
+  private static incProvider(providerId: string, providerName: string) {
+    const current = this.usage.providers.get(providerId) ?? { count: 0, name: providerName };
+    current.count += 1;
+    current.name = providerName; // keep latest name
+    this.usage.providers.set(providerId, current);
+  }
+
+  static trackUsage(providerId: string, providerName: string, model: string) {
+    this.incModel(model);
+    this.incProvider(providerId, providerName);
+  }
+
+  static trackUpstreamError(providerId: string, providerName: string, model: string) {
+    this.counters.upstreamErrors += 1;
+    this.incModel(model);
+    this.incProvider(providerId, providerName);
+    this.usage.providerErrors.set(providerId, (this.usage.providerErrors.get(providerId) ?? 0) + 1);
+  }
+
+  static trackCooldown(providerId: string, providerName: string, model: string) {
+    this.counters.cooldowns += 1;
+    this.incModel(model);
+    this.incProvider(providerId, providerName);
+  }
+
+  static trackRetryExhausted(model: string) {
+    this.counters.retryExhausted += 1;
+    this.incModel(model);
+  }
+
+  static getMetrics() {
+    const topModel = [...this.usage.models.entries()].sort((a, b) => b[1] - a[1])[0];
+    const topProvider = [...this.usage.providers.entries()].sort((a, b) => b[1].count - a[1].count)[0];
+    return {
+      counters: { ...this.counters },
+      usage: {
+        models: Object.fromEntries(this.usage.models),
+        providers: Object.fromEntries(
+          [...this.usage.providers.entries()].map(([id, v]) => [id, { name: v.name, count: v.count }])
+        ),
+        topModel: topModel ? { model: topModel[0], count: topModel[1] } : null,
+        topProvider: topProvider ? { id: topProvider[0], name: topProvider[1].name, count: topProvider[1].count } : null,
+        providerErrors: Object.fromEntries(this.usage.providerErrors),
+      },
+    };
+  }
+
   // 記錄 API 請求日誌
   static logRequest(data: {
     method: string;

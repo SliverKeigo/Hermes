@@ -65,6 +65,12 @@ export const AdminController = new Elysia({ prefix: "/admin" })
       result: t.Optional(t.Union([t.Literal('success'), t.Literal('failure')])),
     })
   })
+  // Metrics snapshot
+  .get("/metrics", () => {
+    return {
+      data: LogService.getMetrics()
+    };
+  })
   // [NEW] 獲取生成的密鑰列表
   .get("/keys", ({ query }) => {
     const filters: { description?: string, id?: string } = {};
@@ -150,6 +156,24 @@ export const AdminController = new Elysia({ prefix: "/admin" })
       name: t.String(),
       baseUrl: t.String(),
       apiKey: t.String()
+    })
+  })
+  // 更新提供商
+  .patch("/providers/:id", ({ params, body, set }) => {
+    try {
+      const { name, baseUrl, apiKey } = body as { name?: string; baseUrl?: string; apiKey?: string };
+      const updated = ProviderManagerService.updateProvider(params.id, { name, baseUrl, apiKey });
+      return { success: true, data: updated };
+    } catch (error: any) {
+      logger.error("更新提供商失敗", error);
+      set.status = 500;
+      return { success: false, error: error.message };
+    }
+  }, {
+    body: t.Object({
+      name: t.Optional(t.String()),
+      baseUrl: t.Optional(t.String()),
+      apiKey: t.Optional(t.String())
     })
   })
   // 刪除提供商

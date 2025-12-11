@@ -2,6 +2,7 @@ import { AIProvider } from "../config/providers";
 import { ChatCompletionRequest } from "../models/openai.types";
 import { logger } from "../utils/logger";
 import { DispatcherService } from "./dispatcher.service";
+import { LogService } from "./log.service";
 
 // 代理服務 (Proxy Service)
 // 負責將請求轉發給上游提供商並處理響應
@@ -11,6 +12,8 @@ export class ProxyService {
     const url = `${provider.baseUrl}/chat/completions`;
 
     logger.info(`正在轉發請求到: ${url}`);
+    // 記錄模型/供應商使用
+    LogService.trackUsage(provider.id, provider.name, payload.model);
 
     try {
       const response = await fetch(url, {
@@ -29,6 +32,7 @@ export class ProxyService {
         logger.error(`來自 ${provider.name} 的上游錯誤: ${response.status} - ${errorText}`);
         // 將該 provider+model 置入冷卻期，避免短時間內繼續命中
         DispatcherService.penalize(provider.id, payload.model);
+        LogService.trackUpstreamError(provider.id, provider.name, payload.model);
         return new Response(errorText, {
           status: response.status,
           headers: { "content-type": contentType }
@@ -54,6 +58,7 @@ export class ProxyService {
       logger.error("代理轉發失敗 (Proxy forwarding failed)", error);
       // 網絡級/其他異常也進行冷卻
       DispatcherService.penalize(provider.id, payload.model);
+      LogService.trackUpstreamError(provider.id, provider.name, payload.model);
       throw error;
     }
   }

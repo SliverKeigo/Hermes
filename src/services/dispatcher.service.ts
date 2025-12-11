@@ -1,6 +1,7 @@
 import { AIProvider } from "../config/providers";
 import { ProviderManagerService } from "./provider.manager"; // [NEW] 引入管理器
 import { logger } from "../utils/logger";
+import { LogService } from "./log.service";
 
 // 分發服務 (Dispatcher Service)
 // "信使邏輯"：根據請求的模型選擇合適的上游提供商
@@ -16,6 +17,7 @@ export class DispatcherService {
   private static setCooldown(providerId: string, modelName: string, backoffMs: number) {
     const until = Date.now() + backoffMs;
     this.cooldowns.set(this.key(providerId, modelName), { until, backoffMs });
+    LogService.trackCooldown(providerId, ProviderManagerService.getAll().find(p => p.id === providerId)?.name || providerId, modelName);
     logger.warn(`[Dispatcher] 暫停上游: provider=${providerId} model=${modelName} 直到 ${new Date(until).toISOString()} (backoff=${backoffMs}ms)`);
   }
 

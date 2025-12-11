@@ -3,6 +3,7 @@ import { AuthService } from "../services/auth.service";
 import { DispatcherService } from "../services/dispatcher.service";
 import { ProxyService } from "../services/proxy.service";
 import { ProviderManagerService } from "../services/provider.manager"; // [新增] 引入提供商管理服務
+import { LogService } from "../services/log.service";
 import { ChatCompletionRequest } from "../models/openai.types";
 import { logger } from "../utils/logger";
 
@@ -125,6 +126,7 @@ export const ChatController = new Elysia({ prefix: "/v1" })
       };
     }
 
+    LogService.trackRetryExhausted(payload.model);
     logger.error(`[ChatController] 上游轉發失敗 (重試耗盡) model=${payload.model}`, lastError);
     set.status = 502; // Bad Gateway
     return {

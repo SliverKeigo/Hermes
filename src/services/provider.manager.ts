@@ -54,6 +54,40 @@ export class ProviderManagerService {
     return result.changes > 0;
   }
 
+  // 更新提供商信息並重新同步
+  static updateProvider(id: string, updates: { name?: string; baseUrl?: string; apiKey?: string }): AIProvider {
+    const existingRow = db.query(`SELECT * FROM providers WHERE id = $id`).get({ $id: id }) as any;
+    if (!existingRow) {
+      throw new Error("Provider not found");
+    }
+
+    const sanitizedBaseUrl = updates.baseUrl ? updates.baseUrl.replace(/\/$/, "") : existingRow.baseUrl;
+    const nextProvider: AIProvider = {
+      ...existingRow,
+      name: updates.name ?? existingRow.name,
+      baseUrl: sanitizedBaseUrl,
+      apiKey: updates.apiKey ?? existingRow.apiKey,
+      models: JSON.parse(existingRow.models || "[]"),
+      status: "pending",
+    };
+
+    db.exec(`
+      UPDATE providers
+      SET name = '${nextProvider.name}',
+          baseUrl = '${nextProvider.baseUrl}',
+          apiKey = '${nextProvider.apiKey}',
+          status = 'pending',
+          models = '[]',
+          lastSyncedAt = NULL,
+          lastUsedAt = ${Date.now()}
+      WHERE id = '${id}'
+    `);
+
+    // 觸發重新同步
+    this.backgroundSyncTask(nextProvider);
+    return nextProvider;
+  }
+
   // 更新提供商狀態和模型 (用於後台任務)
   private static updateProviderStatus(id: string, status: string, models?: string[]) {
     const now = Date.now();
