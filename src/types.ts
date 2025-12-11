@@ -13,6 +13,13 @@ export interface RequestLog {
   createdAt: number;
 }
 
+export interface RequestLogFilters {
+  method?: string;
+  path?: string;
+  model?: string;
+  status?: number;
+}
+
 export interface SyncLog {
   id: string;
   providerId: string;
@@ -21,4 +28,10 @@ export interface SyncLog {
   result: 'success' | 'failure';
   message: string;
   createdAt: number;
+}
+
+export interface SyncLogFilters {
+  providerName?: string;
+  model?: string;
+  result?: 'success' | 'failure';
 }

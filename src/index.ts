@@ -96,4 +96,4 @@ logger.info(
   `📊 Dashboard available at http://localhost:${config.port}/dashboard`
 );
 
-logger.info("Hermes AI Gateway initialized. (赫爾墨斯網關已初始化)");
+logger.info("Hermes AI Gateway initialized.");

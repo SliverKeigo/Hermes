@@ -33,8 +33,23 @@
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-8 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-globe text-blue-500"></i> API 請求日誌 (最近 50 條)
+                    <i class="fa-solid fa-globe text-blue-500"></i> API 請求日誌
                 </h2>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-600">頁數:</label>
+                    <input type="number" id="reqLogPageInput" value="1" min="1" class="w-16 px-2 py-1 border rounded-md text-sm text-center">
+                    <button id="reqLogPrevBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">上一頁</button>
+                    <button id="reqLogNextBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">下一頁</button>
+                </div>
+            </div>
+            <!-- 過濾條件 -->
+            <div class="px-6 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap gap-3 items-center text-sm">
+                <input type="text" id="reqFilterMethod" placeholder="方法 (GET/POST)" class="w-32 px-2 py-1 border rounded-md">
+                <input type="text" id="reqFilterPath" placeholder="路徑" class="w-40 px-2 py-1 border rounded-md">
+                <input type="text" id="reqFilterModel" placeholder="模型" class="w-32 px-2 py-1 border rounded-md">
+                <input type="number" id="reqFilterStatus" placeholder="狀態碼" class="w-24 px-2 py-1 border rounded-md">
+                <button onclick="requestLogCurrentPage=1; fetchRequestLogs(1);" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">篩選</button>
+                <button onclick="clearRequestFilters();" class="px-3 py-1 bg-gray-400 text-white rounded-md hover:bg-gray-500">清除</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-500">
@@ -60,8 +75,26 @@
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-sync text-green-500"></i> 後台同步日誌 (最近 50 條)
+                    <i class="fa-solid fa-sync text-green-500"></i> 後台同步日誌
                 </h2>
+                <div class="flex items-center gap-2">
+                    <label class="text-sm text-gray-600">頁數:</label>
+                    <input type="number" id="syncLogPageInput" value="1" min="1" class="w-16 px-2 py-1 border rounded-md text-sm text-center">
+                    <button id="syncLogPrevBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">上一頁</button>
+                    <button id="syncLogNextBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">下一頁</button>
+                </div>
+            </div>
+            <!-- 過濾條件 -->
+            <div class="px-6 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap gap-3 items-center text-sm">
+                <input type="text" id="syncFilterProviderName" placeholder="提供商名稱" class="w-40 px-2 py-1 border rounded-md">
+                <input type="text" id="syncFilterModel" placeholder="模型" class="w-32 px-2 py-1 border rounded-md">
+                <select id="syncFilterResult" class="px-2 py-1 border rounded-md">
+                    <option value="">所有結果</option>
+                    <option value="success">成功</option>
+                    <option value="failure">失敗</option>
+                </select>
+                <button onclick="syncLogCurrentPage=1; fetchSyncLogs(1);" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">篩選</button>
+                <button onclick="clearSyncFilters();" class="px-3 py-1 bg-gray-400 text-white rounded-md hover:bg-gray-500">清除</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-500">
@@ -84,6 +117,31 @@
 
     <script>
         const API_BASE = '/admin';
+        const LOG_LIMIT = 10; // 每頁顯示 10 條日誌
+
+        let requestLogCurrentPage = 1;
+        let syncLogCurrentPage = 1;
+
+        // 初始化輸入框
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('reqLogPageInput').value = requestLogCurrentPage;
+            document.getElementById('syncLogPageInput').value = syncLogCurrentPage;
+
+            // 監聽頁碼輸入框的 Enter 鍵
+            document.getElementById('reqLogPageInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    requestLogCurrentPage = parseInt(e.target.value) || 1;
+                    fetchRequestLogs(requestLogCurrentPage);
+                }
+            });
+            document.getElementById('syncLogPageInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    syncLogCurrentPage = parseInt(e.target.value) || 1;
+                    fetchSyncLogs(syncLogCurrentPage);
+                }
+            });
+        });
+
 
         function formatDate(ts) {
             return new Date(ts).toLocaleString();
@@ -97,15 +155,39 @@
         }
 
         async function fetchLogs() {
+            await fetchRequestLogs(requestLogCurrentPage);
+            await fetchSyncLogs(syncLogCurrentPage);
+        }
+
+        async function fetchRequestLogs(page) {
+            document.getElementById('reqLogPageInput').value = page;
+            document.getElementById('reqLogPrevBtn').disabled = page === 1;
+
+            const filters = {
+                method: document.getElementById('reqFilterMethod').value,
+                path: document.getElementById('reqFilterPath').value,
+                model: document.getElementById('reqFilterModel').value,
+                status: document.getElementById('reqFilterStatus').value,
+            };
+
+            let queryString = `page=${page}&limit=${LOG_LIMIT}`;
+            for (const key in filters) {
+                if (filters[key]) {
+                    queryString += `&${key}=${filters[key]}`;
+                }
+            }
+
             try {
-                // 1. Fetch Request Logs
-                const reqRes = await fetch(`${API_BASE}/request-logs?limit=50`);
-                const reqData = await reqRes.json();
                 const reqBody = document.getElementById('requestLogsBody');
-                reqBody.innerHTML = '';
+                reqBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">加載中...</td></tr>';
+
+                const reqRes = await fetch(`${API_BASE}/request-logs?${queryString}`);
+                const reqData = await reqRes.json();
                 
+                reqBody.innerHTML = '';
                 if (reqData.data.length === 0) {
                     reqBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">暫無數據</td></tr>';
+                    document.getElementById('reqLogNextBtn').disabled = true;
                 } else {
                     reqData.data.forEach(log => {
                         const row = document.createElement('tr');
@@ -121,16 +203,43 @@
                         `;
                         reqBody.appendChild(row);
                     });
+                    // 如果返回的數據少於 limit，說明是最後一頁
+                    document.getElementById('reqLogNextBtn').disabled = reqData.data.length < LOG_LIMIT;
                 }
+            } catch (err) {
+                console.error(err);
+                document.getElementById('reqLogPageInput').value = `${page} (加載失敗)`;
+            }
+        }
 
-                // 2. Fetch Sync Logs
-                const syncRes = await fetch(`${API_BASE}/sync-logs?limit=50`);
-                const syncData = await syncRes.json();
+        async function fetchSyncLogs(page) {
+            document.getElementById('syncLogPageInput').value = page;
+            document.getElementById('syncLogPrevBtn').disabled = page === 1;
+
+            const filters = {
+                providerName: document.getElementById('syncFilterProviderName').value,
+                model: document.getElementById('syncFilterModel').value,
+                result: document.getElementById('syncFilterResult').value,
+            };
+
+            let queryString = `page=${page}&limit=${LOG_LIMIT}`;
+            for (const key in filters) {
+                if (filters[key]) {
+                    queryString += `&${key}=${filters[key]}`;
+                }
+            }
+
+            try {
                 const syncBody = document.getElementById('syncLogsBody');
-                syncBody.innerHTML = '';
+                syncBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">加載中...</td></tr>';
 
+                const syncRes = await fetch(`${API_BASE}/sync-logs?${queryString}`);
+                const syncData = await syncRes.json();
+                
+                syncBody.innerHTML = '';
                 if (syncData.data.length === 0) {
                     syncBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">暫無數據</td></tr>';
+                    document.getElementById('syncLogNextBtn').disabled = true;
                 } else {
                     syncData.data.forEach(log => {
                         const isSuccess = log.result === 'success';
@@ -149,15 +258,56 @@
                         `;
                         syncBody.appendChild(row);
                     });
+                    document.getElementById('syncLogNextBtn').disabled = syncData.data.length < LOG_LIMIT;
                 }
-
             } catch (err) {
                 console.error(err);
-                alert('獲取日誌失敗');
+                document.getElementById('syncLogPageInput').value = `${page} (加載失敗)`;
             }
         }
 
-        // Init
+        // 清除過濾條件
+        function clearRequestFilters() {
+            document.getElementById('reqFilterMethod').value = '';
+            document.getElementById('reqFilterPath').value = '';
+            document.getElementById('reqFilterModel').value = '';
+            document.getElementById('reqFilterStatus').value = '';
+            requestLogCurrentPage = 1;
+            fetchRequestLogs(1);
+        }
+
+        function clearSyncFilters() {
+            document.getElementById('syncFilterProviderName').value = '';
+            document.getElementById('syncFilterModel').value = '';
+            document.getElementById('syncFilterResult').value = '';
+            syncLogCurrentPage = 1;
+            fetchSyncLogs(1);
+        }
+
+
+        // 事件監聽器
+        document.getElementById('reqLogPrevBtn').addEventListener('click', () => {
+            if (requestLogCurrentPage > 1) {
+                requestLogCurrentPage--;
+                fetchRequestLogs(requestLogCurrentPage);
+            }
+        });
+        document.getElementById('reqLogNextBtn').addEventListener('click', () => {
+            requestLogCurrentPage++;
+            fetchRequestLogs(requestLogCurrentPage);
+        });
+        document.getElementById('syncLogPrevBtn').addEventListener('click', () => {
+            if (syncLogCurrentPage > 1) {
+                syncLogCurrentPage--;
+                fetchSyncLogs(syncLogCurrentPage);
+            }
+        });
+        document.getElementById('syncLogNextBtn').addEventListener('click', () => {
+            syncLogCurrentPage++;
+            fetchSyncLogs(syncLogCurrentPage);
+        });
+
+        // 初始加載
         fetchLogs();
     </script>
 </body>

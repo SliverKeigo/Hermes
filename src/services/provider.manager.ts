@@ -8,6 +8,7 @@ export class ProviderManagerService {
   
   // 獲取所有提供商
   static getAll(): AIProvider[] {
+    // 使用 db.query() 和 .all()
     const results = db.query(`SELECT * FROM providers ORDER BY createdAt DESC`).all() as any[];
     
     // 反序列化 models 字段
@@ -46,8 +47,9 @@ export class ProviderManagerService {
 
   // 刪除提供商
   static removeProvider(id: string): boolean {
-    const query = db.query(`DELETE FROM providers WHERE id = '${id}'`);
-    const result = query.run(); // Changed to run directly
+    // 使用 db.query() 和 .run()
+    const query = db.query(`DELETE FROM providers WHERE id = $id`);
+    const result = query.run({ $id: id }); // Changed to run with named parameter
     return result.changes > 0;
   }
 
