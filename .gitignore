@@ -41,10 +41,17 @@ yarn-error.log*
 package-lock.json
 **/*.bun
 
-GEMINI.md
+# Database
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+
+# IDE
 .GEMINI
 .codex
 .vscode
 .idea
 .claude
 docs
+GEMINI.md

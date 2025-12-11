@@ -9,6 +9,3 @@ export interface AIProvider {
   lastSyncedAt?: number; // 上次同步時間
   createdAt: number; // 創建時間
 }
-
-// 動態提供商存儲
-export const providerStore: AIProvider[] = [];

@@ -1,5 +1,6 @@
 import { Elysia, t } from "elysia";
 import { ProviderManagerService } from "../services/provider.manager";
+import { LogService } from "../services/log.service"; // [NEW]
 import { logger } from "../utils/logger";
 
 // 管理員控制器 (Admin Controller)
@@ -9,6 +10,20 @@ export const AdminController = new Elysia({ prefix: "/admin" })
   .get("/providers", () => {
     return {
       data: ProviderManagerService.getAll()
+    };
+  })
+  // [NEW] 獲取 API 請求日誌
+  .get("/request-logs", ({ query }) => {
+    const limit = query.limit ? parseInt(query.limit) : 50;
+    return {
+      data: LogService.getRecentRequests(limit)
+    };
+  })
+  // [NEW] 獲取同步日誌
+  .get("/sync-logs", ({ query }) => {
+    const limit = query.limit ? parseInt(query.limit) : 50;
+    return {
+      data: LogService.getRecentSyncLogs(limit)
     };
   })
   // 添加新的提供商

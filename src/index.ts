@@ -4,6 +4,7 @@ import { rateLimit } from "elysia-rate-limit"; // [NEW] 引入限流插件
 import { config } from "./config";
 import { ChatController } from "./controllers/chat.controller";
 import { AdminController } from "./controllers/admin.controller";
+import { LogService } from "./services/log.service"; // [NEW]
 import { logger } from "./utils/logger";
 
 // 初始化 Elysia 應用實例
@@ -23,11 +24,38 @@ const app = new Elysia()
     }),
     countFailedRequest: true // 失敗的請求也計入限制
   }))
+  // 注入請求開始時間
+  .state('startTime', 0)
+  .onRequest(({ store }) => {
+    store.startTime = performance.now();
+  })
   // 全局請求日誌中間件 (Global Request Logger)
-  .onRequest(({ request }) => {
+  .onAfterResponse(({ request, set, store, body }) => {
     // 忽略頻繁的輪詢請求
     if (request.url.includes("/admin/providers") && request.method === "GET") return;
-    logger.info(`收到請求: ${request.method} ${request.url}`);
+
+    const duration = Math.floor(performance.now() - (store.startTime || performance.now()));
+    const ip = app.server?.requestIP(request)?.address;
+
+    // 嘗試解析 model 名稱 (如果有的話)
+    let model: string | undefined;
+    try {
+        if (typeof body === 'object' && body && 'model' in body) {
+            model = (body as any).model;
+        }
+    } catch (e) {}
+
+    logger.info(`[${set.status}] ${request.method} ${request.url} - ${duration}ms`);
+
+    // 持久化日誌
+    LogService.logRequest({
+        method: request.method,
+        path: new URL(request.url).pathname,
+        model,
+        status: set.status || 200,
+        duration,
+        ip
+    });
   })
   // 註冊控制器
   .use(ChatController)
@@ -38,6 +66,7 @@ const app = new Elysia()
 
   // [NEW] 提供前端儀表板頁面
   .get("/dashboard", () => Bun.file("public/index.html"))
+  .get("/logs", () => Bun.file("public/logs.html"))
   .get("/chat", () => Bun.file("public/chat.html"))
   .get("/logo.png", () => Bun.file("public/Hermes.png"))
 

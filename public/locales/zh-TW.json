@@ -22,6 +22,7 @@
         "btn_adding": "提交中...",
         "list_title": "已配置的服務站",
         "empty_list": "暫無服務站，請在上方新增。",
+        "logs": "日誌監控",
         "test_chat": "測試 Chat",
         "status": {
             "pending": "等待中",

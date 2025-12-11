@@ -22,6 +22,7 @@
         "btn_adding": "Submitting...",
         "list_title": "Configured Providers",
         "empty_list": "No providers yet. Add one above.",
+        "logs": "System Logs",
         "test_chat": "Test Chat",
         "status": {
             "pending": "Pending",

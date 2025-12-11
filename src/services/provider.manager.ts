@@ -1,96 +1,159 @@
-import { AIProvider, providerStore } from "../config/providers";
+import { db } from "../db";
+import { AIProvider } from "../config/providers";
 import { logger } from "../utils/logger";
+import { LogService } from "./log.service"; // [NEW] 引入日誌服務
 
-// 提供商管理服務 (Provider Manager Service)
+// 提供商管理服務 (Provider Manager Service) - SQLite 版
 export class ProviderManagerService {
 
+  // 獲取所有提供商
   static getAll(): AIProvider[] {
-    return providerStore;
+    const query = db.query("SELECT * FROM providers ORDER BY createdAt DESC");
+    const results = query.all() as any[];
+
+    // 反序列化 models 字段
+    return results.map(row => ({
+      ...row,
+      models: JSON.parse(row.models)
+    }));
   }
 
-  // 1. 同步添加接口 (立即返回)
+  // 添加提供商
   static async addProvider(name: string, baseUrl: string, apiKey: string): Promise<AIProvider> {
     const id = crypto.randomUUID();
+    const createdAt = Date.now();
 
     const newProvider: AIProvider = {
       id,
       name,
       baseUrl: baseUrl.replace(/\/$/, ""),
       apiKey,
-      models: [], // 初始為空
-      status: 'pending', // 初始狀態
-      createdAt: Date.now(),
+      models: [],
+      status: 'pending',
+      createdAt,
     };
 
-    providerStore.push(newProvider);
+    // 插入數據庫
+    const insert = db.query(`
+      INSERT INTO providers (id, name, baseUrl, apiKey, models, status, createdAt)
+      VALUES ($id, $name, $baseUrl, $apiKey, $models, $status, $createdAt)
+    `);
 
-    // 2. 觸發後台異步同步任務 (Fire-and-Forget)
-    // 不等待這個 Promise 完成，直接返回 Provider 對象
+    insert.run({
+      $id: newProvider.id,
+      $name: newProvider.name,
+      $baseUrl: newProvider.baseUrl,
+      $apiKey: newProvider.apiKey,
+      $models: JSON.stringify(newProvider.models),
+      $status: newProvider.status,
+      $createdAt: newProvider.createdAt
+    });
+
+    // 觸發後台同步
     this.backgroundSyncTask(newProvider);
 
     return newProvider;
   }
 
+  // 刪除提供商
   static removeProvider(id: string): boolean {
-    const index = providerStore.findIndex(p => p.id === id);
-    if (index !== -1) {
-      providerStore.splice(index, 1);
-      return true;
-    }
-    return false;
+    const query = db.query("DELETE FROM providers WHERE id = $id");
+    const result = query.run({ $id: id });
+    return result.changes > 0;
   }
 
-  // 3. 後台異步任務 (Background Task)
-  // 包含低 RPM 檢測邏輯
+  // 更新提供商狀態和模型 (用於後台任務)
+  private static updateProviderStatus(id: string, status: string, models?: string[]) {
+    if (models) {
+      const query = db.query("UPDATE providers SET status = $status, models = $models, lastSyncedAt = $now WHERE id = $id");
+      query.run({
+        $status: status,
+        $models: JSON.stringify(models),
+        $now: Date.now(),
+        $id: id
+      });
+    } else {
+      const query = db.query("UPDATE providers SET status = $status WHERE id = $id");
+      query.run({
+        $status: status,
+        $id: id
+      });
+    }
+  }
+
+  // 後台異步任務
   private static async backgroundSyncTask(provider: AIProvider) {
     logger.info(`[後台任務] 開始為 ${provider.name} 同步模型...`);
 
-    // 更新狀態為同步中
-    provider.status = 'syncing';
+    this.updateProviderStatus(provider.id, 'syncing');
 
     try {
-      // 1. 獲取原始列表
       const rawModels = await this.fetchModelsFromUpstream(provider.baseUrl, provider.apiKey);
 
-      // 2. 名稱初步篩選 (Name Filter)
       const candidateModels = rawModels.filter(modelId => {
         const id = modelId.toLowerCase();
         return id.includes('gpt') || id.includes('claude') || id.includes('gemini') || id.includes('deepseek');
       });
 
-      logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${candidateModels.length}，準備進行可用性檢測...`);
+      logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${candidateModels.length}`);
 
-      // 3. 逐個進行實彈檢測 (Active Verification)
-      // 清空舊模型列表，準備重新填充
-      provider.models = [];
+      const validModels: string[] = [];
+      // 先清空模型列表
+      this.updateProviderStatus(provider.id, 'syncing', []);
 
       for (const model of candidateModels) {
-        // 低 RPM 保護：每次檢測前等待 5 秒 (12 RPM)
+        // 低 RPM 保護：5秒
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         const isWorking = await this.verifyModel(provider.baseUrl, provider.apiKey, model);
 
         if (isWorking) {
-          // [實時更新] 檢測通過一個，就立即加入存儲，以便前端輪詢時能看到
-          provider.models.push(model);
+          validModels.push(model);
           logger.info(`[檢測通過] ${model}`);
+          // [實時更新] 每次發現一個，就更新數據庫
+          this.updateProviderStatus(provider.id, 'syncing', validModels);
+
+          // [日誌] 記錄成功
+          LogService.logSync({
+            providerId: provider.id,
+            providerName: provider.name,
+            model: model,
+            result: 'success',
+            message: 'Model is active and responding'
+          });
         } else {
-          logger.warn(`[檢測失敗] ${model} - 無法調用或無權限`);
+          logger.warn(`[檢測失敗] ${model}`);
+
+          // [日誌] 記錄失敗
+          LogService.logSync({
+            providerId: provider.id,
+            providerName: provider.name,
+            model: model,
+            result: 'failure',
+            message: 'Verification failed (401/404/500)'
+          });
         }
       }
 
-      logger.info(`[後台任務] ${provider.name} 同步完成。最終可用模型: ${provider.models.length}`);
+      logger.info(`[後台任務] ${provider.name} 同步完成。最終可用: ${validModels.length}`);
+      this.updateProviderStatus(provider.id, 'active', validModels);
 
-      // 更新狀態
-      provider.status = 'active';
-      provider.lastSyncedAt = Date.now();
     } catch (error: any) {
       logger.error(`[後台任務] ${provider.name} 同步失敗`, error);
-      provider.status = 'error';
+      this.updateProviderStatus(provider.id, 'error');
+
+      // [日誌] 記錄整體失敗
+      LogService.logSync({
+        providerId: provider.id,
+        providerName: provider.name,
+        model: 'ALL',
+        result: 'failure',
+        message: `Sync process failed: ${error.message}`
+      });
     }
   }
 
-  // 驗證模型是否真實可用 (Probe)
+  // 驗證模型 (Probe)
   private static async verifyModel(baseUrl: string, apiKey: string, model: string): Promise<boolean> {
     const url = `${baseUrl}/chat/completions`;
     try {
@@ -102,20 +165,19 @@ export class ProviderManagerService {
         },
         body: JSON.stringify({
           model: model,
-          messages: [{ role: "user", content: "Hi" }], // 極簡 Prompt
-          max_tokens: 1 // 節省 Token
+          messages: [{ role: "user", content: "Hi" }],
+          max_tokens: 1
         })
       });
-
-      return response.ok; // 只有 200-299 視為可用
+      return response.ok;
     } catch (error) {
       return false;
     }
   }
 
+  // 獲取上游列表
   private static async fetchModelsFromUpstream(baseUrl: string, apiKey: string): Promise<string[]> {
     const url = `${baseUrl}/models`;
-
     const response = await fetch(url, {
       method: "GET",
       headers: {
