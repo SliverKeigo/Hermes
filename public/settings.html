@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes 设置中心</title>
+    <link rel="icon" href="/logo.png" type="image/png">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }</style>
+</head>
+<body class="p-8">
+    <div class="max-w-5xl mx-auto">
+        <header class="mb-8 flex justify-between items-center">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <img src="/logo.png" alt="Hermes Logo" class="w-10 h-10 rounded-full shadow-sm object-cover">
+                    设置中心
+                </h1>
+                <p class="text-gray-600 mt-1">管理密钥和系统配置</p>
+            </div>
+            <div class="flex gap-2">
+                <a href="/dashboard" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
+                    <i class="fa-solid fa-arrow-left"></i> 返回控制台
+                </a>
+                <button onclick="refreshSettings()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> 刷新设置
+                </button>
+            </div>
+        </header>
+
+        <!-- 密鑰管理 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-key text-purple-500"></i> 密钥管理
+            </h2>
+            <div class="mt-4 space-y-3">
+                <div class="flex flex-col md:flex-row gap-2">
+                    <input type="text" id="newKeyDescription" placeholder="密钥描述 (例如: 测试密钥)" class="flex-grow px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <input type="text" id="newKeyValue" placeholder="手动输入密钥值 (可选)" class="flex-grow px-3 py-2 border border-gray-300 rounded-md text-sm">
+                    <button type="button" id="generateKeyBtn" onclick="generateNewKey()" class="px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition font-medium whitespace-nowrap">
+                        <i class="fa-solid fa-plus-circle mr-2"></i> 生成/添加密钥
+                    </button>
+                </div>
+                <div id="generatedKeyDisplay" class="bg-blue-50 text-blue-800 px-3 py-2 rounded-md text-sm hidden">
+                    已生成密钥: <span class="font-mono select-all"></span> (请复制)
+                </div>
+            </div>
+            <div class="border-t pt-3 flex flex-col md:flex-row gap-2">
+                <input type="text" id="keySearchTerm" placeholder="搜索密钥描述或ID" class="flex-grow px-3 py-2 border border-gray-300 rounded-md text-sm">
+                <button onclick="searchKeys()" class="px-4 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition font-medium">
+                    <i class="fa-solid fa-search mr-2"></i> 搜索
+                </button>
+                <button onclick="clearKeySearch()" class="px-4 py-2 bg-gray-400 text-white rounded-md hover:bg-gray-500 transition font-medium">
+                    <i class="fa-solid fa-xmark mr-2"></i> 清除
+                </button>
+            </div>
+            <div id="keyList" class="space-y-4 mt-4">
+                <p class="text-gray-500 text-center py-4">加载中...</p>
+            </div>
+        </div>
+
+        <!-- 定時任務配置 -->
+        <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
+            <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
+                <i class="fa-solid fa-clock-rotate-left text-orange-500"></i> 定时任务配置
+            </h2>
+            <div class="mt-4 space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Provider 周期性同步间隔</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="syncIntervalInput" min="1" class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="24">
+                        <span class="text-gray-600">小时</span>
+                        <button onclick="setPeriodicSyncInterval()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium">
+                            保存设置
+                        </button>
+                    </div>
+                    <p id="currentIntervalDisplay" class="text-sm text-gray-500 mt-2">当前间隔: <span></span></p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        const API_BASE = '/admin';
+
+        function formatDate(ts) {
+            return new Date(ts).toLocaleString();
+        }
+
+        // 刷新所有设置 (密鑰和間隔)
+        window.refreshSettings = () => {
+            fetchKeys();
+            fetchPeriodicSyncInterval();
+        };
+
+        // 渲染密鑰列表 (與 Dashboard 頁面邏輯類似)
+        async function fetchKeys(searchTerm = '') {
+            const keyList = document.getElementById('keyList');
+            keyList.innerHTML = `<p class="text-gray-500 text-center py-4">加载中...</p>`;
+            let queryString = '';
+            if (searchTerm) {
+                // 假设搜索框既可以搜 description 也可以搜 ID
+                // 后端 AdminController 需要根据这两个参数进行查询
+                const encodedTerm = encodeURIComponent(searchTerm);
+                queryString = `?description=${encodedTerm}&id=${encodedTerm}`; 
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/keys${queryString}`);
+                const { data } = await res.json();
+                keyList.innerHTML = '';
+
+                if (data.length === 0) {
+                    keyList.innerHTML = `<p class="text-gray-500 text-center py-4">暂无密钥，请生成新密钥</p>`;
+                    return;
+                }
+
+                data.forEach(key => {
+                    const el = document.createElement('div');
+                    el.className = 'border border-gray-200 rounded-md p-3 flex justify-between items-center bg-gray-50';
+                    el.innerHTML = `
+                        <div>
+                            <p class="text-sm font-medium text-gray-800">${key.description}</p>
+                            <p class="text-xs text-gray-500">ID: ${key.id} • 生成于: ${formatDate(key.createdAt)} • 最后使用: ${key.lastUsedAt ? formatDate(key.lastUsedAt) : '从未使用'}</p>
+                        </div>
+                        <button onclick="deleteKey('${key.id}')" class="text-red-500 hover:text-red-700 text-sm px-2 py-1 border border-red-200 rounded hover:bg-red-50" title="删除">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    `;
+                    keyList.appendChild(el);
+                });
+            } catch (err) {
+                console.error(err);
+                keyList.innerHTML = `<p class="text-red-500 text-center py-4">错误</p>`;
+            }
+        }
+
+        // 生成新密鑰
+        window.generateNewKey = async () => {
+            console.log(`[FE Debug] generateNewKey called at ${new Date().toISOString()}`); // Debug log
+            const generateKeyBtn = document.getElementById('generateKeyBtn');
+            generateKeyBtn.disabled = true; // 立即禁用按钮
+            
+            const description = document.getElementById('newKeyDescription').value.trim();
+            const keyValue = document.getElementById('newKeyValue').value.trim();
+
+            const payload = { description: description || 'Generated by Admin' };
+            if (keyValue) {
+                payload.key = keyValue;
+            }
+
+            try {
+                const res = await fetch(`${API_BASE}/keys/generate`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await res.json();
+                
+                if (result.success) {
+                    // 显示生成的密鑰
+                    const generatedKeySpan = document.querySelector('#generatedKeyDisplay span');
+                    generatedKeySpan.innerText = result.key;
+                    document.getElementById('generatedKeyDisplay').classList.remove('hidden');
+
+                    // 自动复制到剪贴板
+                    navigator.clipboard.writeText(result.key).then(() => {
+                        console.log('Key copied to clipboard');
+                    }).catch(err => {
+                        console.error('Failed to copy key to clipboard', err);
+                    });
+
+                    // 清空输入框
+                    document.getElementById('newKeyDescription').value = '';
+                    document.getElementById('newKeyValue').value = '';
+
+                    fetchKeys(); // 刷新列表
+                } else {
+                    alert(`错误: ${result.error}`);
+                }
+            } catch (err) {
+                alert(`错误: ${err.message}`);
+            } finally {
+                generateKeyBtn.disabled = false; // 重新启用按钮
+                console.log(`[FE Debug] generateNewKey finished at ${new Date().toISOString()}`); // Debug log
+            }
+        };
+
+        // 搜索密鑰
+        window.searchKeys = () => {
+            const searchTerm = document.getElementById('keySearchTerm').value.trim();
+            fetchKeys(searchTerm);
+        };
+
+        // 清除密鑰搜索條件
+        window.clearKeySearch = () => {
+            document.getElementById('keySearchTerm').value = '';
+            fetchKeys();
+        };
+
+        // 刪除密鑰
+        window.deleteKey = async (id) => {
+            if (!confirm('确定要删除此密钥吗？')) return;
+            await fetch(`${API_BASE}/keys/${id}`, { method: 'DELETE' });
+            fetchKeys();
+        };
+
+        // 獲取並顯示當前 Provider 週期性同步間隔
+        async function fetchPeriodicSyncInterval() {
+            try {
+                const res = await fetch('/admin/settings/periodic-sync-interval-hours');
+                const { intervalHours } = await res.json();
+                document.getElementById('syncIntervalInput').value = intervalHours;
+                document.querySelector('#currentIntervalDisplay span').innerText = `${intervalHours} 小时`;
+            } catch (err) {
+                console.error(err);
+                document.querySelector('#currentIntervalDisplay span').innerText = `加载失败`;
+            }
+        }
+
+        // 設置 Provider 週期性同步間隔
+        window.setPeriodicSyncInterval = async () => {
+            const newIntervalHours = parseInt(document.getElementById('syncIntervalInput').value);
+            if (isNaN(newIntervalHours) || newIntervalHours <= 0) {
+                alert("间隔时间必须是正数！");
+                return;
+            }
+
+            try {
+                const res = await fetch('/admin/settings/periodic-sync-interval-hours', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ intervalHours: newIntervalHours })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert(`设置成功！新的间隔为 ${result.newIntervalHours} 小时。`);
+                    fetchPeriodicSyncInterval();
+                } else {
+                    alert(`错误: ${result.error}`);
+                }
+            } catch (err) {
+                alert(`错误: ${err.message}`);
+            }
+        };
+
+        // 初始化
+        refreshSettings();
+    </script>
+</body>
+</html>
