@@ -43,7 +43,7 @@ const app = new Elysia()
         if (typeof body === 'object' && body && 'model' in body) {
             model = (body as any).model;
         }
-    } catch (e) {}
+    } catch (e) { /* ignore */ }
 
     logger.info(`[${set.status}] ${request.method} ${request.url} - ${duration}ms`);
 
@@ -52,7 +52,7 @@ const app = new Elysia()
         method: request.method,
         path: new URL(request.url).pathname,
         model,
-        status: set.status || 200,
+        status: typeof set.status === 'number' ? set.status : 200,
         duration,
         ip
     });
@@ -89,10 +89,10 @@ const app = new Elysia()
   // 啟動服務器監聽端口
   .listen(config.port);
 
-console.log(
+logger.info(
   `🦊 Hermes is running at ${app.server?.hostname}:${app.server?.port}`
 );
-console.log(
+logger.info(
   `📊 Dashboard available at http://localhost:${config.port}/dashboard`
 );
 

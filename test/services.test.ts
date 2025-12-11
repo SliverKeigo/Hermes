@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, beforeAll, afterAll } from "bun:test";
+import { describe, it, expect, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 
 // 1. Mock DB (必須在導入服務前)
@@ -41,7 +41,7 @@ describe("服務層測試 (Services Tests)", () => {
       // 1. 添加 Provider (初始狀態 pending/syncing)
       // Mock fetch 以避免網絡請求
       const originalFetch = global.fetch;
-      global.fetch = mock(async () => new Response(JSON.stringify({ data: [] })));
+      global.fetch = mock(async () => new Response(JSON.stringify({ data: [] }))) as any;
       
       const provider = await ProviderManagerService.addProvider("Mock", "http://mock", "sk-mock");
       

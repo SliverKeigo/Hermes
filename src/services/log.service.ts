@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { RequestLog, SyncLog } from "../types";
 
 export class LogService {
   // 記錄 API 請求日誌
@@ -52,12 +53,12 @@ export class LogService {
   }
 
   // 獲取最近的請求日誌 (用於 Admin Dashboard)
-  static getRecentRequests(limit = 50) {
-    return db.query("SELECT * FROM request_logs ORDER BY createdAt DESC LIMIT $limit").all({ $limit: limit });
+  static getRecentRequests(limit = 50): RequestLog[] {
+    return db.query("SELECT * FROM request_logs ORDER BY createdAt DESC LIMIT $limit").all({ $limit: limit }) as unknown as RequestLog[];
   }
 
   // 獲取最近的同步日誌
-  static getRecentSyncLogs(limit = 50) {
-    return db.query("SELECT * FROM sync_logs ORDER BY createdAt DESC LIMIT $limit").all({ $limit: limit });
+  static getRecentSyncLogs(limit = 50): SyncLog[] {
+    return db.query("SELECT * FROM sync_logs ORDER BY createdAt DESC LIMIT $limit").all({ $limit: limit }) as unknown as SyncLog[];
   }
 }

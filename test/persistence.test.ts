@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll, mock } from "bun:test";
+import { describe, it, expect, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 
 // 1. Mock 數據庫模塊
@@ -57,7 +57,7 @@ describe("持久化與日誌測試 (Persistence & Logging)", () => {
     it("應能將 Provider 保存到數據庫", async () => {
       // 模擬 fetch 避免真實網絡請求
       const originalFetch = global.fetch;
-      global.fetch = mock(async () => new Response(JSON.stringify({ data: [] })));
+      global.fetch = mock(async () => new Response(JSON.stringify({ data: [] }))) as any;
 
       const provider = await ProviderManagerService.addProvider("DB Test", "http://test", "sk-db");
       
@@ -76,7 +76,7 @@ describe("持久化與日誌測試 (Persistence & Logging)", () => {
     it("應能刪除 Provider", async () => {
       // 模擬 fetch
       const originalFetch = global.fetch;
-      global.fetch = mock(async () => new Response(JSON.stringify({ data: [] })));
+      global.fetch = mock(async () => new Response(JSON.stringify({ data: [] }))) as any;
 
       const provider = await ProviderManagerService.addProvider("To Delete", "http://del", "sk-del");
       const success = ProviderManagerService.removeProvider(provider.id);
