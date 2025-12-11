@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hermes 控制台</title>
+    <title>Hermes Dashboard</title>
+    <link rel="icon" href="/logo.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -16,46 +17,50 @@
     <div class="max-w-5xl mx-auto">
         <header class="mb-8 flex justify-between items-center">
             <div>
-                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-layer-group text-blue-600"></i> Hermes AI Gateway
+                <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <img src="/logo.png" alt="Hermes Logo" class="w-10 h-10 rounded-full shadow-sm object-cover">
+                    <span data-i18n="common.title">Hermes AI Gateway</span>
                 </h1>
-                <p class="text-gray-600 mt-1">多模型聚合網關控制台</p>
+                <p class="text-gray-600 mt-1" data-i18n="common.subtitle">多模型聚合網關控制台</p>
             </div>
-            <div class="flex gap-2">
-                <a href="/chat" target="_blank" class="bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                    <i class="fa-solid fa-comments"></i> 測試 Chat
-                </a>
-                <button onclick="fetchProviders()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                    <i class="fa-solid fa-rotate-right"></i> 刷新列表
-                </button>
+            <div class="flex gap-4 items-center">
+                <div id="lang-switcher"></div>
+                <div class="flex gap-2">
+                    <a href="/chat" target="_blank" class="bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-md transition flex items-center gap-2">
+                        <i class="fa-solid fa-comments"></i> <span data-i18n="dashboard.test_chat">測試 Chat</span>
+                    </a>
+                    <button onclick="fetchProviders()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
+                        <i class="fa-solid fa-rotate-right"></i> <span data-i18n="common.refresh">刷新列表</span>
+                    </button>
+                </div>
             </div>
         </header>
 
         <!-- 添加提供商表單 -->
         <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200 mb-8">
             <h2 class="text-xl font-semibold mb-4 text-gray-800 flex items-center gap-2">
-                <i class="fa-solid fa-plus-circle text-blue-500"></i> 添加新的服務站
+                <i class="fa-solid fa-plus-circle text-blue-500"></i> <span data-i18n="dashboard.add_provider_title">添加新的服務站</span>
             </h2>
             <form id="addProviderForm" class="space-y-4">
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">名稱 (Name)</label>
-                        <input type="text" id="name" placeholder="例如: Official OpenAI" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="dashboard.label_name">名稱 (Name)</label>
+                        <input type="text" id="name" data-i18n="dashboard.ph_name" data-i18n-target="placeholder" placeholder="例如: Official OpenAI" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Base URL</label>
-                        <input type="url" id="baseUrl" placeholder="https://api.openai.com/v1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                        <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="dashboard.label_base_url">Base URL</label>
+                        <input type="url" id="baseUrl" data-i18n="dashboard.ph_base_url" data-i18n-target="placeholder" placeholder="https://api.openai.com/v1" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
                     </div>
                 </div>
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
-                    <input type="password" id="apiKey" placeholder="sk-..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
+                    <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="dashboard.label_api_key">API Key</label>
+                    <input type="password" id="apiKey" data-i18n="dashboard.ph_api_key" data-i18n-target="placeholder" placeholder="sk-..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
                 </div>
                 <div class="bg-blue-50 p-3 rounded text-sm text-blue-700">
-                    <i class="fa-solid fa-info-circle mr-1"></i> 添加後，系統將在後台自動異步檢測並過濾可用模型。
+                    <i class="fa-solid fa-info-circle mr-1"></i> <span data-i18n="dashboard.info_sync">添加後，系統將在後台自動異步檢測並過濾可用模型。</span>
                 </div>
                 <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition duration-200 font-medium">
-                    添加並啟動後台同步
+                    <span data-i18n="dashboard.btn_add">添加並啟動後台同步</span>
                 </button>
             </form>
         </div>
@@ -64,27 +69,20 @@
         <div class="bg-white p-6 rounded-lg shadow-sm border border-gray-200">
             <div class="flex justify-between items-center mb-4">
                 <h2 class="text-xl font-semibold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-server text-green-600"></i> 已配置的服務站
+                    <i class="fa-solid fa-server text-green-600"></i> <span data-i18n="dashboard.list_title">已配置的服務站</span>
                 </h2>
-                <span id="providerCount" class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-mono">0 個節點</span>
+                <span id="providerCount" class="bg-gray-100 text-gray-600 px-2 py-1 rounded text-xs font-mono">0</span>
             </div>
             
             <div id="providerList" class="space-y-4">
-                <p class="text-gray-500 text-center py-8">正在加載數據...</p>
+                <p class="text-gray-500 text-center py-8" data-i18n="common.loading">正在加載數據...</p>
             </div>
         </div>
     </div>
 
+    <script src="/js/i18n.js"></script>
     <script>
         const API_BASE = '/admin';
-
-        // 狀態樣式映射
-        const STATUS_MAP = {
-            'pending': { color: 'bg-gray-100 text-gray-600', icon: 'fa-clock', label: '等待中' },
-            'syncing': { color: 'bg-yellow-100 text-yellow-700', icon: 'fa-spinner fa-spin', label: '同步檢測中...' },
-            'active':  { color: 'bg-green-100 text-green-700', icon: 'fa-check-circle', label: '活躍 (Active)' },
-            'error':   { color: 'bg-red-100 text-red-700', icon: 'fa-exclamation-triangle', label: '同步失敗' }
-        };
 
         // 渲染提供商列表
         async function fetchProviders() {
@@ -95,56 +93,60 @@
                 const res = await fetch(`${API_BASE}/providers`);
                 const { data } = await res.json();
                 
-                countBadge.innerText = `${data.length} 個節點`;
+                countBadge.innerText = `${data.length}`;
                 list.innerHTML = '';
 
                 if (data.length === 0) {
                     list.innerHTML = `
                         <div class="text-center py-12 bg-gray-50 rounded border border-dashed border-gray-300">
                             <i class="fa-regular fa-folder-open text-4xl text-gray-300 mb-3"></i>
-                            <p class="text-gray-500">暫無服務站，請在上方添加。</p>
+                            <p class="text-gray-500">${window.i18n.t('dashboard.empty_list')}</p>
                         </div>`;
                     return;
                 }
 
                 data.forEach(provider => {
-                    const statusConfig = STATUS_MAP[provider.status] || STATUS_MAP['pending'];
-                    const isSyncing = provider.status === 'syncing';
+                    const statusKey = `dashboard.status.${provider.status}`;
+                    const statusLabel = window.i18n.t(statusKey);
                     
+                    let statusColor = 'bg-gray-100 text-gray-600';
+                    let statusIcon = 'fa-clock';
+
+                    if (provider.status === 'syncing') { statusColor = 'bg-yellow-100 text-yellow-700'; statusIcon = 'fa-spinner fa-spin'; }
+                    else if (provider.status === 'active') { statusColor = 'bg-green-100 text-green-700'; statusIcon = 'fa-check-circle'; }
+                    else if (provider.status === 'error') { statusColor = 'bg-red-100 text-red-700'; statusIcon = 'fa-exclamation-triangle'; }
+
                     let modelsHtml = '';
-                    
-                    // 1. 渲染已經發現的模型 (無論是 active 還是 syncing 狀態)
                     if (provider.models && provider.models.length > 0) {
                         modelsHtml = `<div class="flex flex-wrap gap-2 mt-3">
-                            ${provider.models.map(m => `<span class="px-2 py-1 bg-gray-100 border border-gray-200 text-gray-700 text-xs rounded font-mono transition hover:bg-gray-200 cursor-default">${m}</span>`).join('')}
+                            ${provider.models.map(m => `<span class="px-2 py-1 bg-gray-100 border border-gray-200 text-gray-700 text-xs rounded font-mono cursor-default">${m}</span>`).join('')}
                         </div>`;
                     } else if (provider.status === 'active') {
-                        modelsHtml = `<div class="mt-2 text-sm text-yellow-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i> 同步成功但未過濾出可用 Chat 模型</div>`;
+                        modelsHtml = `<div class="mt-2 text-sm text-yellow-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i> ${window.i18n.t('dashboard.active_warning')}</div>`;
                     }
 
-                    // 2. 如果正在同步，顯示加載指示器
-                    if (isSyncing) {
+                    if (provider.status === 'syncing') {
                         modelsHtml += `<div class="mt-3 text-sm text-blue-600 flex items-center animate-pulse">
-                            <i class="fa-solid fa-microchip mr-2"></i> 正在檢測更多模型可用性...
+                            <i class="fa-solid fa-microchip mr-2"></i> ${window.i18n.t('dashboard.syncing_desc')}
                         </div>`;
                     } else if (provider.status === 'error') {
                         modelsHtml = `<div class="mt-3 text-sm text-red-600">
-                            <i class="fa-solid fa-xmark mr-1"></i> 連接上游失敗，請檢查 Key 或 BaseURL
+                            <i class="fa-solid fa-xmark mr-1"></i> ${window.i18n.t('dashboard.error_desc')}
                         </div>`;
                     }
 
                     const timeAgo = new Date(provider.createdAt).toLocaleString();
 
                     const el = document.createElement('div');
-                    el.className = `border ${isSyncing ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'} rounded-lg p-5 hover:shadow-md transition bg-white relative overflow-hidden group`;
+                    el.className = `border ${provider.status === 'syncing' ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'} rounded-lg p-5 hover:shadow-md transition bg-white relative overflow-hidden group`;
                     
                     el.innerHTML = `
                         <div class="flex justify-between items-start">
                             <div class="flex-1">
                                 <div class="flex items-center gap-3 mb-1">
                                     <h3 class="font-bold text-lg text-gray-800">${provider.name}</h3>
-                                    <span class="px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${statusConfig.color}">
-                                        <i class="fa-solid ${statusConfig.icon}"></i> ${statusConfig.label}
+                                    <span class="px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${statusColor}">
+                                        <i class="fa-solid ${statusIcon}"></i> ${statusLabel}
                                     </span>
                                 </div>
                                 <p class="text-sm text-gray-500 font-mono flex items-center gap-2">
@@ -154,11 +156,11 @@
                                 ${modelsHtml}
                                 
                                 <div class="mt-4 text-xs text-gray-400">
-                                    ID: ${provider.id} • 創建於: ${timeAgo}
+                                    ID: ${provider.id} • ${timeAgo}
                                 </div>
                             </div>
                             <div class="ml-4 flex flex-col gap-2">
-                                <button onclick="deleteProvider('${provider.id}')" class="text-gray-400 hover:text-red-600 transition p-2 rounded hover:bg-red-50" title="刪除">
+                                <button onclick="deleteProvider('${provider.id}')" class="text-gray-400 hover:text-red-600 transition p-2 rounded hover:bg-red-50" title="${window.i18n.t('common.delete')}">
                                     <i class="fa-solid fa-trash-can"></i>
                                 </button>
                             </div>
@@ -168,7 +170,6 @@
                 });
             } catch (err) {
                 console.error(err);
-                // 靜默失敗，因為是輪詢
             }
         }
 
@@ -176,9 +177,11 @@
         document.getElementById('addProviderForm').addEventListener('submit', async (e) => {
             e.preventDefault();
             const btn = e.target.querySelector('button');
-            const originalText = btn.innerText;
+            const span = btn.querySelector('span');
+            const originalText = span.innerText;
+            
             btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 提交中...';
+            span.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> ${window.i18n.t('dashboard.btn_adding')}`;
 
             const payload = {
                 name: document.getElementById('name').value,
@@ -196,29 +199,31 @@
                 
                 if (result.success) {
                     document.getElementById('addProviderForm').reset();
-                    fetchProviders(); // 立即刷新
+                    fetchProviders(); 
                 } else {
-                    alert('添加失敗: ' + (result.error || '未知錯誤'));
+                    alert(window.i18n.t('common.error') + ': ' + (result.error || 'Unknown'));
                 }
             } catch (err) {
-                alert('網絡錯誤');
+                alert(window.i18n.t('common.error'));
             } finally {
                 btn.disabled = false;
-                btn.innerText = originalText;
+                span.innerText = window.i18n.t('dashboard.btn_add'); // Re-translate incase lang switched
             }
         });
 
         // 刪除提供商
         window.deleteProvider = async (id) => {
-            if (!confirm('確定要刪除此服務站嗎？')) return;
+            if (!confirm(window.i18n.t('common.confirm_delete'))) return;
             await fetch(`${API_BASE}/providers/${id}`, { method: 'DELETE' });
             fetchProviders();
         };
 
-        // 初始加載
+        // 初始加載 (由 i18n init 觸發，或者在 DOMContentLoaded 後)
+        // 這裡我們不再直接調用 fetchProviders，而是依賴 i18n 腳本加載完成
+        // 或者簡單一點，這裡還是直接調用，因為文本會被 i18n.updatePage 覆蓋
         fetchProviders();
         
-        // 自動輪詢 (每3秒更新一次狀態，頻率稍微調高以便看到實時效果)
+        // 自動輪詢
         setInterval(fetchProviders, 3000);
     </script>
 </body>
