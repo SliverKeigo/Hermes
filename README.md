@@ -1,15 +1,20 @@
-# Elysia with Bun runtime
+# 赫尔墨斯颂
 
-## Getting Started
-To get started with this template, simply paste this command into your terminal:
-```bash
-bun create elysia ./elysia-example
-```
+疾如思绪，亮如以太，风翅掠过山巅与海屿。
+他以羽履踏云，将诸界低语缝成一卷星光，
+在黎明与夜幕之间，传递众心未竟之问。
 
-## Development
-To start the development server run:
-```bash
-bun run dev
-```
+铜杖轻击，大地静默，
+深林的兽、城邦的民、星辰的火，皆屏息而听。
+每一道回声，化为金色河流，穿过秘钥之门，
+在永恒的穹顶下回响，回到渴望者的掌心。
 
-Open http://localhost:3000/ with your browser to see the result.
+他不问是谁，只问何求；
+他不问何处，只问何思。
+往昔的神话与将来的梦境，
+在此刻折叠为一，像箭矢离弦，又如潮汐返岸。
+
+愿流光为翼，愿声息为舟，
+愿好奇者的祈愿，化作火焰，
+穿越幽暗，照亮远方——
+此地，讯息得以抵达，思绪得以成形。
