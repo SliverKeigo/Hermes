@@ -2,9 +2,9 @@ FROM oven/bun:1.1 AS base
 
 WORKDIR /app
 
-# Install only production deps using the lockfile
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile --production
+COPY package.json ./
+# 忽略安裝腳本以避免缺失 husky 等開發依賴
+RUN bun install --production --ignore-scripts
 
 # Copy application source
 COPY . .

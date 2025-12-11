@@ -4,7 +4,7 @@ services:
     ports:
       - "3000:3000"
     environment:
-      HERMES_SECRET: ${HERMES_SECRET:hermes-secret}
+      HERMES_SECRET: ${HERMES_SECRET:-hermes-secret-key}
       PORT: ${PORT:-3000}
       DB_PATH: /data/hermes.db
     volumes:

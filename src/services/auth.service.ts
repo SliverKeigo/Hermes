@@ -9,10 +9,10 @@ export class AuthService {
   // 驗證密鑰 (Validate Key)
   static validateKey(key: string | undefined): boolean {
     if (!key) return false;
-    
+
     // 如果存在 "Bearer " 前綴，則將其移除
     const token = key.startsWith("Bearer ") ? key.slice(7) : key;
-    
+
     // 檢查是否與硬編碼的開發密鑰匹配
     if (token === config.hermesSecret) {
       return true;
@@ -26,11 +26,11 @@ export class AuthService {
       db.exec(`UPDATE hermes_keys SET lastUsedAt = ${Date.now()} WHERE id = '${keyRecord.id}'`);
       return true;
     }
-    
+
     if (!keyRecord) {
       logger.warn("無效的訪問嘗試 (Invalid access attempt)", { tokenHash: sha256(token) });
     }
-    
+
     return false;
   }
 
