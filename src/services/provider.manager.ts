@@ -3,7 +3,7 @@ import { logger } from "../utils/logger";
 
 // 提供商管理服務 (Provider Manager Service)
 export class ProviderManagerService {
-  
+
   static getAll(): AIProvider[] {
     return providerStore;
   }
@@ -11,7 +11,7 @@ export class ProviderManagerService {
   // 1. 同步添加接口 (立即返回)
   static async addProvider(name: string, baseUrl: string, apiKey: string): Promise<AIProvider> {
     const id = crypto.randomUUID();
-    
+
     const newProvider: AIProvider = {
       id,
       name,
@@ -44,41 +44,78 @@ export class ProviderManagerService {
   // 包含低 RPM 檢測邏輯
   private static async backgroundSyncTask(provider: AIProvider) {
     logger.info(`[後台任務] 開始為 ${provider.name} 同步模型...`);
-    
+
     // 更新狀態為同步中
     provider.status = 'syncing';
 
     try {
-      // 模擬排隊/低 RPM 延遲 (例如等待 1 秒，避免併發添加時觸發限流)
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
+      // 1. 獲取原始列表
       const rawModels = await this.fetchModelsFromUpstream(provider.baseUrl, provider.apiKey);
-      
-      // 4. 過濾篩選邏輯 (Filter Logic)
-      // 例如：只保留 gpt 或 claude 開頭的模型，過濾掉 whisper/dall-e 等非對話模型
-      // 這也是 "檢測" 的一部分，確保我們只存儲能用的 Chat 模型
-      const validModels = rawModels.filter(modelId => {
+
+      // 2. 名稱初步篩選 (Name Filter)
+      const candidateModels = rawModels.filter(modelId => {
         const id = modelId.toLowerCase();
         return id.includes('gpt') || id.includes('claude') || id.includes('gemini') || id.includes('deepseek');
       });
 
-      logger.info(`[後台任務] ${provider.name} 原始模型數: ${rawModels.length}, 篩選後: ${validModels.length}`);
+      logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${candidateModels.length}，準備進行可用性檢測...`);
 
-      // 更新存儲
-      provider.models = validModels;
+      // 3. 逐個進行實彈檢測 (Active Verification)
+      // 清空舊模型列表，準備重新填充
+      provider.models = [];
+
+      for (const model of candidateModels) {
+        // 低 RPM 保護：每次檢測前等待 5 秒 (12 RPM)
+        await new Promise(resolve => setTimeout(resolve, 5000));
+
+        const isWorking = await this.verifyModel(provider.baseUrl, provider.apiKey, model);
+
+        if (isWorking) {
+          // [實時更新] 檢測通過一個，就立即加入存儲，以便前端輪詢時能看到
+          provider.models.push(model);
+          logger.info(`[檢測通過] ${model}`);
+        } else {
+          logger.warn(`[檢測失敗] ${model} - 無法調用或無權限`);
+        }
+      }
+
+      logger.info(`[後台任務] ${provider.name} 同步完成。最終可用模型: ${provider.models.length}`);
+
+      // 更新狀態
       provider.status = 'active';
       provider.lastSyncedAt = Date.now();
-
     } catch (error: any) {
       logger.error(`[後台任務] ${provider.name} 同步失敗`, error);
       provider.status = 'error';
-      // 可以在這裡添加重試邏輯 (TODO)
+    }
+  }
+
+  // 驗證模型是否真實可用 (Probe)
+  private static async verifyModel(baseUrl: string, apiKey: string, model: string): Promise<boolean> {
+    const url = `${baseUrl}/chat/completions`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: [{ role: "user", content: "Hi" }], // 極簡 Prompt
+          max_tokens: 1 // 節省 Token
+        })
+      });
+
+      return response.ok; // 只有 200-299 視為可用
+    } catch (error) {
+      return false;
     }
   }
 
   private static async fetchModelsFromUpstream(baseUrl: string, apiKey: string): Promise<string[]> {
     const url = `${baseUrl}/models`;
-    
+
     const response = await fetch(url, {
       method: "GET",
       headers: {

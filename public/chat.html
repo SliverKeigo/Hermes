@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Chat 測試</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .message-content p { margin-bottom: 0.5rem; }
+        .message-content pre { background: #1e293b; color: #e2e8f0; padding: 1rem; border-radius: 0.5rem; overflow-x: auto; }
+        .typing-dot { animation: typing 1.4s infinite ease-in-out both; }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes typing { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+    </style>
+</head>
+<body class="h-screen flex flex-col md:flex-row overflow-hidden">
+    
+    <!-- 側邊欄設置 -->
+    <aside class="w-full md:w-80 bg-white border-r border-gray-200 p-6 flex flex-col z-10 shadow-lg md:shadow-none">
+        <h1 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-2">
+            <i class="fa-solid fa-comments text-blue-600"></i> Hermes Chat
+        </h1>
+        
+        <div class="space-y-4 flex-1 overflow-y-auto">
+            <!-- API Key -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Hermes Key</label>
+                <div class="relative">
+                    <input type="password" id="apiKey" class="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="hermes-secret-..." value="hermes-secret-key-123">
+                    <i class="fa-solid fa-key absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+                </div>
+            </div>
+
+            <!-- Model Selector -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">選擇模型 (Model)</label>
+                <div class="relative">
+                    <select id="modelSelect" class="w-full pl-9 pr-3 py-2 border rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
+                        <option value="" disabled selected>加載中...</option>
+                    </select>
+                    <i class="fa-solid fa-robot absolute left-3 top-2.5 text-gray-400 text-xs"></i>
+                    <button onclick="loadModels()" class="absolute right-2 top-2 text-gray-400 hover:text-blue-600" title="刷新模型">
+                        <i class="fa-solid fa-rotate-right text-xs"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Parameters -->
+            <div class="border-t pt-4 mt-4">
+                <label class="flex items-center justify-between cursor-pointer mb-3">
+                    <span class="text-sm font-medium text-gray-700">流式響應 (Stream)</span>
+                    <input type="checkbox" id="streamToggle" checked class="sr-only peer">
+                    <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                </label>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">溫度 (Temperature): <span id="tempValue">0.7</span></label>
+                    <input type="range" id="tempRange" min="0" max="2" step="0.1" value="0.7" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4 pt-4 border-t text-xs text-gray-400 text-center">
+            Powered by Hermes AI Gateway
+        </div>
+    </aside>
+
+    <!-- 聊天主區域 -->
+    <main class="flex-1 flex flex-col bg-gray-50 relative">
+        <!-- 消息列表 -->
+        <div id="chatContainer" class="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 pb-24 scroll-smooth">
+            <!-- 歡迎消息 -->
+            <div class="flex gap-4 max-w-3xl mx-auto">
+                <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+                    <i class="fa-solid fa-robot text-blue-600 text-sm"></i>
+                </div>
+                <div class="flex-1 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
+                    <p class="text-gray-800">你好！我是 Hermes 測試助手。請在左側配置 Key 和模型，然後開始對話。我會幫你測試 API 的連通性和流式輸出。</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 輸入框 -->
+        <div class="absolute bottom-0 left-0 right-0 bg-white border-t p-4">
+            <div class="max-w-3xl mx-auto relative">
+                <textarea id="userInput" rows="1" class="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none shadow-sm max-h-32" placeholder="發送消息... (Shift + Enter 換行)"></textarea>
+                <button id="sendBtn" class="absolute right-2 bottom-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+                    <i class="fa-solid fa-paper-plane"></i>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const modelSelect = document.getElementById('modelSelect');
+        const tempRange = document.getElementById('tempRange');
+        
+        // 更新溫度顯示
+        tempRange.addEventListener('input', (e) => document.getElementById('tempValue').innerText = e.target.value);
+
+        // 自動調整輸入框高度
+        userInput.addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+        });
+
+        // 處理鍵盤發送
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        sendBtn.addEventListener('click', sendMessage);
+
+        // 加載模型列表
+        async function loadModels() {
+            const apiKey = document.getElementById('apiKey').value;
+            modelSelect.innerHTML = '<option>正在獲取...</option>';
+            modelSelect.disabled = true;
+
+            try {
+                const res = await fetch('/v1/models', {
+                    headers: { 'Authorization': `Bearer ${apiKey}` }
+                });
+                const data = await res.json();
+                
+                modelSelect.innerHTML = '';
+                if (data.data && data.data.length > 0) {
+                    data.data.forEach(model => {
+                        const option = document.createElement('option');
+                        option.value = model.id;
+                        option.innerText = model.id;
+                        modelSelect.appendChild(option);
+                    });
+                } else {
+                    modelSelect.innerHTML = '<option value="">無可用模型</option>';
+                }
+            } catch (err) {
+                console.error(err);
+                modelSelect.innerHTML = '<option value="">加載失敗</option>';
+            } finally {
+                modelSelect.disabled = false;
+            }
+        }
+
+        // 渲染消息氣泡
+        function appendMessage(role, content, id = null) {
+            const isUser = role === 'user';
+            const div = document.createElement('div');
+            div.className = `flex gap-4 max-w-3xl mx-auto ${isUser ? 'flex-row-reverse' : ''}`;
+            if (id) div.id = id;
+
+            const avatar = isUser 
+                ? `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user text-gray-500 text-sm"></i></div>`
+                : `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-robot text-blue-600 text-sm"></i></div>`;
+
+            const bubble = isUser
+                ? `<div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none shadow-sm whitespace-pre-wrap">${escapeHtml(content)}</div>`
+                : `<div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 w-full message-content prose prose-sm max-w-none">${marked.parse(content)}</div>`;
+
+            div.innerHTML = isUser ? bubble + avatar : avatar + bubble;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+            return div;
+        }
+
+        // 創建加載中氣泡
+        function appendLoading(id) {
+            const div = document.createElement('div');
+            div.id = id;
+            div.className = `flex gap-4 max-w-3xl mx-auto`;
+            div.innerHTML = 
+                `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-robot text-blue-600 text-sm"></i></div>
+                <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center gap-1">
+                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                    <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                </div>`
+            ;
+            chatContainer.appendChild(div);
+            scrollToBottom();
+        }
+
+        function updateMessageContent(id, content) {
+            const div = document.getElementById(id);
+            if (div) {
+                const contentDiv = div.querySelector('.message-content') || div.querySelector('.shadow-sm');
+                if (contentDiv) {
+                    // 如果是 AI 回覆，重新渲染 Markdown
+                    contentDiv.innerHTML = marked.parse(content);
+                    contentDiv.className = "bg-white p-4 rounded-lg shadow-sm border border-gray-100 w-full message-content prose prose-sm max-w-none";
+                }
+            }
+            scrollToBottom();
+        }
+
+        function scrollToBottom() {
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+            return text.replace(/[&<>"]/g, function(m) { return map[m]; });
+        }
+
+        // 發送消息核心邏輯
+        async function sendMessage() {
+            const text = userInput.value.trim();
+            if (!text) return;
+
+            const apiKey = document.getElementById('apiKey').value;
+            const model = document.getElementById('modelSelect').value;
+            const isStream = document.getElementById('streamToggle').checked;
+            const temp = parseFloat(document.getElementById('tempRange').value);
+
+            if (!model) { alert('請先選擇一個模型！'); return; }
+
+            // UI 更新
+            userInput.value = '';
+            userInput.style.height = 'auto';
+            userInput.disabled = true;
+            sendBtn.disabled = true;
+            appendMessage('user', text);
+
+            const aiMsgId = 'msg-' + Date.now();
+            appendLoading(aiMsgId);
+
+            let fullContent = '';
+
+            try {
+                const response = await fetch('/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: model,
+                        messages: [{ role: "user", content: text }],
+                        stream: isStream,
+                        temperature: temp
+                    })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error?.message || '請求失敗');
+                }
+
+                if (isStream) {
+                    // 處理 SSE 流
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder();
+                    
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        
+                        const chunk = decoder.decode(value, { stream: true });
+                        const lines = chunk.split('\n');
+                        
+                        for (const line of lines) {
+                            if (line.startsWith('data: ')) {
+                                const dataStr = line.slice(6);
+                                if (dataStr === '[DONE]') break;
+                                try {
+                                    const data = JSON.parse(dataStr);
+                                    const delta = data.choices[0].delta.content || '';
+                                    fullContent += delta;
+                                    updateMessageContent(aiMsgId, fullContent);
+                                } catch (e) {}
+                            }
+                        }
+                    }
+                } else {
+                    // 處理普通 JSON
+                    const data = await response.json();
+                    fullContent = data.choices[0].message.content;
+                    updateMessageContent(aiMsgId, fullContent);
+                }
+
+            } catch (error) {
+                const div = document.getElementById(aiMsgId);
+                div.innerHTML = 
+                    `<div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-exclamation text-red-600 text-sm"></i></div>
+                    <div class="bg-red-50 p-3 rounded-lg text-red-700 text-sm border border-red-100">
+                        <strong>錯誤:</strong> ${error.message}
+                    </div>`
+                ;
+            } finally {
+                userInput.disabled = false;
+                sendBtn.disabled = false;
+                userInput.focus();
+            }
+        }
+
+        // 初始化加載
+        loadModels();
+    </script>
+</body>
+</html>

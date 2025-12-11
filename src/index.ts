@@ -11,6 +11,8 @@ const app = new Elysia()
   .use(cors())
   // 全局請求日誌中間件 (Global Request Logger)
   .onRequest(({ request }) => {
+    // 忽略頻繁的輪詢請求
+    if (request.url.includes("/admin/providers") && request.method === "GET") return;
     logger.info(`收到請求: ${request.method} ${request.url}`);
   })
   // 註冊控制器
@@ -22,6 +24,7 @@ const app = new Elysia()
 
   // [NEW] 提供前端儀表板頁面
   .get("/dashboard", () => Bun.file("public/index.html"))
+  .get("/chat", () => Bun.file("public/chat.html"))
 
   // 全局錯誤處理 (Global Error Handler)
   .onError(({ code, error }) => {

@@ -21,9 +21,14 @@
                 </h1>
                 <p class="text-gray-600 mt-1">多模型聚合網關控制台</p>
             </div>
-            <button onclick="fetchProviders()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                <i class="fa-solid fa-rotate-right"></i> 刷新列表
-            </button>
+            <div class="flex gap-2">
+                <a href="/chat" target="_blank" class="bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-md transition flex items-center gap-2">
+                    <i class="fa-solid fa-comments"></i> 測試 Chat
+                </a>
+                <button onclick="fetchProviders()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> 刷新列表
+                </button>
+            </div>
         </header>
 
         <!-- 添加提供商表單 -->
@@ -104,18 +109,23 @@
 
                 data.forEach(provider => {
                     const statusConfig = STATUS_MAP[provider.status] || STATUS_MAP['pending'];
+                    const isSyncing = provider.status === 'syncing';
                     
-                    // 模型列表渲染邏輯
                     let modelsHtml = '';
-                    if (provider.status === 'active') {
-                        modelsHtml = provider.models.length > 0 
-                            ? `<div class="flex flex-wrap gap-2 mt-3">
-                                ${provider.models.map(m => `<span class="px-2 py-1 bg-gray-100 border border-gray-200 text-gray-700 text-xs rounded font-mono">${m}</span>`).join('')}
-                               </div>`
-                            : `<div class="mt-2 text-sm text-yellow-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i> 同步成功但未過濾出可用 Chat 模型</div>`;
-                    } else if (provider.status === 'syncing') {
-                        modelsHtml = `<div class="mt-3 text-sm text-blue-600 flex items-center animate-pulse">
-                            <i class="fa-solid fa-microchip mr-2"></i> 正在後台檢測模型可用性...
+                    
+                    // 1. 渲染已經發現的模型 (無論是 active 還是 syncing 狀態)
+                    if (provider.models && provider.models.length > 0) {
+                        modelsHtml = `<div class="flex flex-wrap gap-2 mt-3">
+                            ${provider.models.map(m => `<span class="px-2 py-1 bg-gray-100 border border-gray-200 text-gray-700 text-xs rounded font-mono transition hover:bg-gray-200 cursor-default">${m}</span>`).join('')}
+                        </div>`;
+                    } else if (provider.status === 'active') {
+                        modelsHtml = `<div class="mt-2 text-sm text-yellow-600"><i class="fa-solid fa-triangle-exclamation mr-1"></i> 同步成功但未過濾出可用 Chat 模型</div>`;
+                    }
+
+                    // 2. 如果正在同步，顯示加載指示器
+                    if (isSyncing) {
+                        modelsHtml += `<div class="mt-3 text-sm text-blue-600 flex items-center animate-pulse">
+                            <i class="fa-solid fa-microchip mr-2"></i> 正在檢測更多模型可用性...
                         </div>`;
                     } else if (provider.status === 'error') {
                         modelsHtml = `<div class="mt-3 text-sm text-red-600">
@@ -126,7 +136,8 @@
                     const timeAgo = new Date(provider.createdAt).toLocaleString();
 
                     const el = document.createElement('div');
-                    el.className = 'border border-gray-200 rounded-lg p-5 hover:shadow-md transition bg-white relative overflow-hidden group';
+                    el.className = `border ${isSyncing ? 'border-blue-300 ring-1 ring-blue-100' : 'border-gray-200'} rounded-lg p-5 hover:shadow-md transition bg-white relative overflow-hidden group`;
+                    
                     el.innerHTML = `
                         <div class="flex justify-between items-start">
                             <div class="flex-1">
@@ -157,7 +168,7 @@
                 });
             } catch (err) {
                 console.error(err);
-                list.innerHTML = '<p class="text-red-500 text-center">無法連接到服務器</p>';
+                // 靜默失敗，因為是輪詢
             }
         }
 
@@ -185,11 +196,7 @@
                 
                 if (result.success) {
                     document.getElementById('addProviderForm').reset();
-                    // 立即刷新列表，用戶會看到 "Syncing" 狀態
-                    fetchProviders();
-                    
-                    // 可選：幾秒後自動再刷新一次以顯示結果
-                    setTimeout(fetchProviders, 2000);
+                    fetchProviders(); // 立即刷新
                 } else {
                     alert('添加失敗: ' + (result.error || '未知錯誤'));
                 }
@@ -211,8 +218,8 @@
         // 初始加載
         fetchProviders();
         
-        // 簡單的自動輪詢 (每5秒更新一次狀態)
-        setInterval(fetchProviders, 5000);
+        // 自動輪詢 (每3秒更新一次狀態，頻率稍微調高以便看到實時效果)
+        setInterval(fetchProviders, 3000);
     </script>
 </body>
 </html>
