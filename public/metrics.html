@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Hermes 指标面板</title>
+  <link rel="icon" href="/logo.png" type="image/png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg,#f7fafc,#eef2ff); }</style>
+</head>
+<body class="p-8">
+  <div class="max-w-6xl mx-auto space-y-6">
+    <header class="flex justify-between items-center">
+      <div>
+        <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
+          <img src="/logo.png" alt="Hermes Logo" class="w-10 h-10 rounded-full shadow-sm object-cover">
+          Hermes 指标面板
+        </h1>
+        <p class="text-gray-600 mt-1">上游错误、冷却与调用概况</p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/dashboard" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
+          <i class="fa-solid fa-arrow-left"></i> 控制台
+        </a>
+        <button id="refreshBtn" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition flex items-center gap-2">
+          <i class="fa-solid fa-rotate-right"></i> 刷新
+        </button>
+      </div>
+    </header>
+
+    <section class="grid grid-cols-1 md:grid-cols-3 gap-4" id="cards">
+      <!-- 动态填充 -->
+    </section>
+
+    <section class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-chart-line text-blue-500"></i>
+          <h2 class="text-lg font-semibold text-gray-800">模型调用排名</h2>
+        </div>
+        <span class="text-sm text-gray-500" id="modelTotal"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-600">
+            <tr>
+              <th class="px-3 py-2 text-left">模型</th>
+              <th class="px-3 py-2 text-left">调用次数</th>
+            </tr>
+          </thead>
+          <tbody id="modelTable"></tbody>
+        </table>
+      </div>
+      <div class="mt-4">
+        <canvas id="modelChart" class="w-full h-64"></canvas>
+      </div>
+    </section>
+
+    <section class="bg-white border border-gray-200 rounded-lg shadow-sm p-4">
+      <div class="flex items-center justify-between mb-3">
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-server text-green-500"></i>
+          <h2 class="text-lg font-semibold text-gray-800">供应商调用排名</h2>
+        </div>
+        <span class="text-sm text-gray-500" id="providerTotal"></span>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-gray-50 text-gray-600">
+            <tr>
+              <th class="px-3 py-2 text-left">供应商</th>
+              <th class="px-3 py-2 text-left">调用次数</th>
+              <th class="px-3 py-2 text-left">错误次数</th>
+            </tr>
+          </thead>
+          <tbody id="providerTable"></tbody>
+        </table>
+      </div>
+      <div class="mt-4">
+        <canvas id="providerChart" class="w-full h-64"></canvas>
+      </div>
+    </section>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script>
+    const API_BASE = '/admin';
+    let modelChart, providerChart;
+
+    function renderCards(metrics) {
+      const { counters, usage } = metrics;
+      const cards = [
+        { title: '上游错误', value: counters.upstreamErrors, icon: 'fa-triangle-exclamation', color: 'text-red-600', bg: 'bg-red-50' },
+        { title: '冷却触发', value: counters.cooldowns, icon: 'fa-snowflake', color: 'text-blue-600', bg: 'bg-blue-50' },
+        { title: '重试耗尽', value: counters.retryExhausted, icon: 'fa-rotate', color: 'text-orange-600', bg: 'bg-orange-50' },
+        { title: '最热模型', value: usage.topModel ? `${usage.topModel.model} (${usage.topModel.count})` : '—', icon: 'fa-fire', color: 'text-purple-600', bg: 'bg-purple-50' },
+        { title: '最忙供应商', value: usage.topProvider ? `${usage.topProvider.name || usage.topProvider.id} (${usage.topProvider.count})` : '—', icon: 'fa-server', color: 'text-green-600', bg: 'bg-green-50' },
+      ];
+
+      const container = document.getElementById('cards');
+      container.innerHTML = '';
+      cards.forEach(card => {
+        const el = document.createElement('div');
+        el.className = `${card.bg} border border-gray-200 rounded-lg p-4 shadow-sm`;
+        el.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="p-3 rounded-full ${card.bg} ${card.color} text-lg bg-white shadow-inner"><i class="fa-solid ${card.icon}"></i></div>
+            <div>
+              <p class="text-gray-600 text-sm">${card.title}</p>
+              <p class="text-2xl font-semibold text-gray-800">${card.value}</p>
+            </div>
+          </div>
+        `;
+        container.appendChild(el);
+      });
+    }
+
+    function renderTable(tableEl, data, columns) {
+      tableEl.innerHTML = '';
+      if (!data || data.length === 0) {
+        tableEl.innerHTML = `<tr><td class="px-3 py-2 text-gray-400" colspan="${columns}">暂无数据</td></tr>`;
+        return;
+      }
+      data.forEach(row => {
+        const tr = document.createElement('tr');
+        tr.className = 'border-b last:border-0';
+        tr.innerHTML = `
+          <td class="px-3 py-2 text-gray-800">${row.name}</td>
+          <td class="px-3 py-2 text-gray-800">${row.count}</td>
+          ${row.errors !== undefined ? `<td class="px-3 py-2 text-gray-800">${row.errors}</td>` : ''}
+        `;
+        tableEl.appendChild(tr);
+      });
+    }
+
+    async function loadMetrics() {
+      const btn = document.getElementById('refreshBtn');
+      btn.disabled = true;
+      btn.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin"></i> 刷新中`;
+      try {
+        const res = await fetch(`${API_BASE}/metrics`);
+        const { data } = await res.json();
+        renderCards(data);
+
+        const models = Object.entries(data.usage.models || {}).map(([name, count]) => ({ name, count }));
+        models.sort((a, b) => b.count - a.count);
+        renderTable(document.getElementById('modelTable'), models, 2);
+        document.getElementById('modelTotal').innerText = `模型总数：${models.length}`;
+        renderModelChart(models);
+
+        const providers = Object.entries(data.usage.providers || {}).map(([id, info]) => ({
+          name: info.name || id,
+          count: info.count,
+          errors: (data.usage.providerErrors || {})[id] || 0
+        }));
+        providers.sort((a, b) => b.count - a.count);
+        renderTable(document.getElementById('providerTable'), providers, 3);
+        document.getElementById('providerTotal').innerText = `供应商总数：${providers.length}`;
+        renderProviderChart(providers);
+      } catch (err) {
+        alert(`加载指标失败: ${err.message}`);
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fa-solid fa-rotate-right"></i> 刷新`;
+      }
+    }
+
+    function renderModelChart(models) {
+      const ctx = document.getElementById('modelChart');
+      if (!ctx) return;
+      if (modelChart) modelChart.destroy();
+      modelChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: models.map(m => m.name),
+          datasets: [{
+            label: '调用次数',
+            data: models.map(m => m.count),
+            backgroundColor: 'rgba(59, 130, 246, 0.6)',
+            borderColor: 'rgba(59, 130, 246, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function renderProviderChart(providers) {
+      const ctx = document.getElementById('providerChart');
+      if (!ctx) return;
+      if (providerChart) providerChart.destroy();
+      providerChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: providers.map(p => p.name),
+          datasets: [
+            {
+              label: '调用次数',
+              data: providers.map(p => p.count),
+              backgroundColor: 'rgba(34, 197, 94, 0.6)',
+              borderColor: 'rgba(34, 197, 94, 1)',
+              borderWidth: 1
+            },
+            {
+              label: '错误次数',
+              data: providers.map(p => p.errors),
+              backgroundColor: 'rgba(239, 68, 68, 0.4)',
+              borderColor: 'rgba(239, 68, 68, 1)',
+              borderWidth: 1
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { position: 'top' } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', loadMetrics);
+    loadMetrics();
+  </script>
+</body>
+</html>

@@ -76,6 +76,7 @@ const app = new Elysia()
   .get("/dashboard", () => Bun.file("public/index.html"))
   .get("/logs", () => Bun.file("public/logs.html"))
   .get("/settings", () => Bun.file("public/settings.html"))
+  .get("/metrics", () => Bun.file("public/metrics.html"))
   .get("/chat", () => Bun.file("public/chat.html"))
   .get("/logo.png", () => Bun.file("public/Hermes.png"))
 
