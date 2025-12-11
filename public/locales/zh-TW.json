@@ -1,0 +1,50 @@
+{
+    "common": {
+        "title": "Hermes AI 網關",
+        "subtitle": "多模型聚合網關控制台",
+        "chat_title": "Hermes Chat",
+        "loading": "載入中...",
+        "error": "錯誤",
+        "refresh": "重新整理列表",
+        "delete": "刪除",
+        "confirm_delete": "確定要刪除此服務站嗎？"
+    },
+    "dashboard": {
+        "add_provider_title": "新增服務站",
+        "label_name": "名稱 (Name)",
+        "label_base_url": "Base URL",
+        "label_api_key": "API Key",
+        "ph_name": "例如: Official OpenAI",
+        "ph_base_url": "例如: https://api.openai.com/v1",
+        "ph_api_key": "sk-...",
+        "info_sync": "新增後，系統將在背景自動非同步檢測並過濾可用模型。",
+        "btn_add": "新增並啟動背景同步",
+        "btn_adding": "提交中...",
+        "list_title": "已配置的服務站",
+        "empty_list": "暫無服務站，請在上方新增。",
+        "test_chat": "測試 Chat",
+        "status": {
+            "pending": "等待中",
+            "syncing": "同步檢測中...",
+            "active": "活躍",
+            "error": "同步失敗"
+        },
+        "syncing_desc": "正在檢測更多模型可用性...",
+        "error_desc": "連接上游失敗，請檢查 Key 或 BaseURL",
+        "active_warning": "同步成功但未過濾出可用 Chat 模型"
+    },
+    "chat": {
+        "settings_title": "Hermes Chat",
+        "label_key": "Hermes Key",
+        "label_model": "選擇模型 (Model)",
+        "refresh_model": "重新整理模型",
+        "label_stream": "串流回應 (Stream)",
+        "label_temp": "溫度 (Temperature)",
+        "powered_by": "Powered by Hermes AI Gateway",
+        "welcome": "你好！我是 Hermes 測試助手。請在左側配置 Key 和模型，然後開始對話。",
+        "ph_input": "發送訊息... (Shift + Enter 換行)",
+        "no_models": "無可用模型",
+        "load_fail": "載入失敗",
+        "select_model_alert": "請先選擇一個模型！"
+    }
+}

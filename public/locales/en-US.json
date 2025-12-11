@@ -1,0 +1,50 @@
+{
+    "common": {
+        "title": "Hermes AI Gateway",
+        "subtitle": "Multi-Model Aggregation Console",
+        "chat_title": "Hermes Chat",
+        "loading": "Loading...",
+        "error": "Error",
+        "refresh": "Refresh List",
+        "delete": "Delete",
+        "confirm_delete": "Are you sure you want to delete this provider?"
+    },
+    "dashboard": {
+        "add_provider_title": "Add New Provider",
+        "label_name": "Name",
+        "label_base_url": "Base URL",
+        "label_api_key": "API Key",
+        "ph_name": "e.g., Official OpenAI",
+        "ph_base_url": "e.g., https://api.openai.com/v1",
+        "ph_api_key": "sk-...",
+        "info_sync": "After adding, the system will verify and filter available models in the background.",
+        "btn_add": "Add & Start Sync",
+        "btn_adding": "Submitting...",
+        "list_title": "Configured Providers",
+        "empty_list": "No providers yet. Add one above.",
+        "test_chat": "Test Chat",
+        "status": {
+            "pending": "Pending",
+            "syncing": "Syncing...",
+            "active": "Active",
+            "error": "Sync Failed"
+        },
+        "syncing_desc": "Verifying more models...",
+        "error_desc": "Failed to connect to upstream. Check Key or BaseURL.",
+        "active_warning": "Synced but no chat models found."
+    },
+    "chat": {
+        "settings_title": "Hermes Chat",
+        "label_key": "Hermes Key",
+        "label_model": "Select Model",
+        "refresh_model": "Refresh",
+        "label_stream": "Stream Response",
+        "label_temp": "Temperature",
+        "powered_by": "Powered by Hermes AI Gateway",
+        "welcome": "Hello! I am the Hermes Test Assistant. Configure your Key and Model on the left to start chatting.",
+        "ph_input": "Send a message... (Shift + Enter to verify)",
+        "no_models": "No models available",
+        "load_fail": "Failed to load",
+        "select_model_alert": "Please select a model first!"
+    }
+}
