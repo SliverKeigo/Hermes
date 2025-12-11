@@ -9,22 +9,27 @@
     "prepare": "husky"
   },
   "lint-staged": {
-    "*.{ts,js}": [
-      "eslint --fix",
+    "*.{ts}": [
+      "eslint --fix"
+    ],
+    "test/**/*.ts": [
       "bun test"
+    ],
+    "*.{js}": [
+      "eslint --fix"
     ]
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
-    "elysia": "latest",
-    "elysia-rate-limit": "^4.4.2"
+    "elysia": "latest"
   },
   "devDependencies": {
     "bun-types": "latest",
     "eslint": "^9.39.1",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
-    "typescript-eslint": "^8.49.0"
+    "typescript-eslint": "^8.49.0",
+    "wrangler": "^4.53.0"
   },
   "module": "src/index.js"
 }

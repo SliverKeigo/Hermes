@@ -71,9 +71,9 @@ class I18n {
 
         container.innerHTML = `
             <select onchange="window.i18n.setLocale(this.value)" class="bg-transparent text-sm border-none focus:ring-0 cursor-pointer text-gray-500 hover:text-gray-700">
-                <option value="zh-CN" ${this.locale === 'zh-CN' ? 'selected' : ''}> 简体中文</option>
-                <option value="zh-TW" ${this.locale === 'zh-TW' ? 'selected' : ''}> 繁體中文</option>
-                <option value="en-US" ${this.locale === 'en-US' ? 'selected' : ''}> English</option>
+                <option value="zh-CN" ${this.locale === 'zh-CN' ? 'selected' : ''}>简体中文</option>
+                <option value="zh-TW" ${this.locale === 'zh-TW' ? 'selected' : ''}>繁體中文</option>
+                <option value="en-US" ${this.locale === 'en-US' ? 'selected' : ''}>English</option>
             </select>
         `;
     }
