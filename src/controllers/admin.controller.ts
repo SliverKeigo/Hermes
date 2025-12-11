@@ -176,6 +176,17 @@ export const AdminController = new Elysia({ prefix: "/admin" })
       apiKey: t.Optional(t.String())
     })
   })
+  // 手動觸發重新同步/探活
+  .post("/providers/:id/resync", ({ params, set }) => {
+    try {
+      ProviderManagerService.triggerResync(params.id);
+      return { success: true };
+    } catch (error: any) {
+      logger.error("手動重新同步失敗", error);
+      set.status = 500;
+      return { success: false, error: error.message };
+    }
+  })
   // 刪除提供商
   .delete("/providers/:id", ({ params }) => {
     const success = ProviderManagerService.removeProvider(params.id);

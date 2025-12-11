@@ -88,6 +88,19 @@ export class ProviderManagerService {
     return nextProvider;
   }
 
+  // 手動觸發同步/探活
+  static triggerResync(id: string): void {
+    const row = db.query(`SELECT * FROM providers WHERE id = $id`).get({ $id: id }) as any;
+    if (!row) {
+      throw new Error("Provider not found");
+    }
+    const provider: AIProvider = {
+      ...row,
+      models: JSON.parse(row.models || "[]"),
+    };
+    this.backgroundSyncTask(provider);
+  }
+
   // 更新提供商狀態和模型 (用於後台任務)
   private static updateProviderStatus(id: string, status: string, models?: string[]) {
     const now = Date.now();
