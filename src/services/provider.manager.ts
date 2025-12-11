@@ -1,16 +1,15 @@
 import { db } from "../db";
 import { AIProvider } from "../config/providers";
 import { logger } from "../utils/logger";
-import { LogService } from "./log.service"; // [NEW] 引入日誌服務
+import { LogService } from "./log.service";
 
-// 提供商管理服務 (Provider Manager Service) - SQLite 版
+// 提供商管理服務 (Provider Manager Service) - SQLite 版 (同步版)
 export class ProviderManagerService {
-
+  
   // 獲取所有提供商
   static getAll(): AIProvider[] {
-    const query = db.query("SELECT * FROM providers ORDER BY createdAt DESC");
-    const results = query.all() as any[];
-
+    const results = db.query(`SELECT * FROM providers ORDER BY createdAt DESC`).all() as any[];
+    
     // 反序列化 models 字段
     return results.map(row => ({
       ...row,
@@ -19,10 +18,10 @@ export class ProviderManagerService {
   }
 
   // 添加提供商
-  static async addProvider(name: string, baseUrl: string, apiKey: string): Promise<AIProvider> {
+  static addProvider(name: string, baseUrl: string, apiKey: string): AIProvider {
     const id = crypto.randomUUID();
     const createdAt = Date.now();
-
+    
     const newProvider: AIProvider = {
       id,
       name,
@@ -34,22 +33,12 @@ export class ProviderManagerService {
     };
 
     // 插入數據庫
-    const insert = db.query(`
+    db.exec(`
       INSERT INTO providers (id, name, baseUrl, apiKey, models, status, createdAt)
-      VALUES ($id, $name, $baseUrl, $apiKey, $models, $status, $createdAt)
+      VALUES ('${newProvider.id}', '${newProvider.name}', '${newProvider.baseUrl}', '${newProvider.apiKey}', '${JSON.stringify(newProvider.models)}', '${newProvider.status}', ${newProvider.createdAt})
     `);
 
-    insert.run({
-      $id: newProvider.id,
-      $name: newProvider.name,
-      $baseUrl: newProvider.baseUrl,
-      $apiKey: newProvider.apiKey,
-      $models: JSON.stringify(newProvider.models),
-      $status: newProvider.status,
-      $createdAt: newProvider.createdAt
-    });
-
-    // 觸發後台同步
+    // 觸發後台同步 (這部分仍然是異步的，因為它確實是一個後台任務)
     this.backgroundSyncTask(newProvider);
 
     return newProvider;
@@ -57,39 +46,29 @@ export class ProviderManagerService {
 
   // 刪除提供商
   static removeProvider(id: string): boolean {
-    const query = db.query("DELETE FROM providers WHERE id = $id");
-    const result = query.run({ $id: id });
+    const query = db.query(`DELETE FROM providers WHERE id = '${id}'`);
+    const result = query.run(); // Changed to run directly
     return result.changes > 0;
   }
 
   // 更新提供商狀態和模型 (用於後台任務)
   private static updateProviderStatus(id: string, status: string, models?: string[]) {
     if (models) {
-      const query = db.query("UPDATE providers SET status = $status, models = $models, lastSyncedAt = $now WHERE id = $id");
-      query.run({
-        $status: status,
-        $models: JSON.stringify(models),
-        $now: Date.now(),
-        $id: id
-      });
+      db.exec(`UPDATE providers SET status = '${status}', models = '${JSON.stringify(models)}', lastSyncedAt = ${Date.now()} WHERE id = '${id}'`);
     } else {
-      const query = db.query("UPDATE providers SET status = $status WHERE id = $id");
-      query.run({
-        $status: status,
-        $id: id
-      });
+      db.exec(`UPDATE providers SET status = '${status}' WHERE id = '${id}'`);
     }
   }
 
-  // 後台異步任務
+  // 後台異步任務 (仍然是異步的)
   private static async backgroundSyncTask(provider: AIProvider) {
     logger.info(`[後台任務] 開始為 ${provider.name} 同步模型...`);
-
+    
     this.updateProviderStatus(provider.id, 'syncing');
 
     try {
       const rawModels = await this.fetchModelsFromUpstream(provider.baseUrl, provider.apiKey);
-
+      
       const candidateModels = rawModels.filter(modelId => {
         const id = modelId.toLowerCase();
         return id.includes('gpt') || id.includes('claude') || id.includes('gemini') || id.includes('deepseek');
@@ -106,14 +85,13 @@ export class ProviderManagerService {
         await new Promise(resolve => setTimeout(resolve, 5000));
 
         const isWorking = await this.verifyModel(provider.baseUrl, provider.apiKey, model);
-
+        
         if (isWorking) {
           validModels.push(model);
           logger.info(`[檢測通過] ${model}`);
-          // [實時更新] 每次發現一個，就更新數據庫
+          // [實時更新]
           this.updateProviderStatus(provider.id, 'syncing', validModels);
-
-          // [日誌] 記錄成功
+          
           LogService.logSync({
             providerId: provider.id,
             providerName: provider.name,
@@ -123,8 +101,7 @@ export class ProviderManagerService {
           });
         } else {
           logger.warn(`[檢測失敗] ${model}`);
-
-          // [日誌] 記錄失敗
+          
           LogService.logSync({
             providerId: provider.id,
             providerName: provider.name,
@@ -141,8 +118,7 @@ export class ProviderManagerService {
     } catch (error: any) {
       logger.error(`[後台任務] ${provider.name} 同步失敗`, error);
       this.updateProviderStatus(provider.id, 'error');
-
-      // [日誌] 記錄整體失敗
+      
       LogService.logSync({
         providerId: provider.id,
         providerName: provider.name,

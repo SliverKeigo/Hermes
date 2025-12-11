@@ -1,12 +1,8 @@
 import { describe, it, expect, mock } from "bun:test";
-import { Database } from "bun:sqlite";
+import { db } from "../src/db"; // Import the real db (which uses in-memory for test env)
 
-// 1. Mock DB (必須在導入服務前)
-const testDb = new Database(":memory:");
-mock.module("../src/db", () => ({ db: testDb }));
-
-// 初始化表
-testDb.exec(`
+// Initialize schema for the in-memory test DB
+db.exec(`
   CREATE TABLE IF NOT EXISTS providers (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -17,7 +13,6 @@ testDb.exec(`
     lastSyncedAt INTEGER,
     createdAt INTEGER
   );
-  -- 其他表省略，因為這個測試文件主要關注服務邏輯
 `);
 
 import { AuthService } from "../src/services/auth.service";
@@ -33,35 +28,29 @@ describe("服務層測試 (Services Tests)", () => {
     it("應驗證正確的 Bearer Token", () => {
       expect(AuthService.validateKey("Bearer test-secret")).toBe(true);
     });
-    // ... 其他 Auth 測試省略，保持不變
   });
 
   describe("DispatcherService (分發服務)", () => {
-    it("應能找到支持特定模型的提供商", async () => {
-      // 1. 添加 Provider (初始狀態 pending/syncing)
-      // Mock fetch 以避免網絡請求
+    it("應能找到支持特定模型的提供商", () => { // No longer async
+      // Mock fetch to avoid real network requests
       const originalFetch = global.fetch;
-      global.fetch = mock(async () => new Response(JSON.stringify({ data: [] }))) as any;
+      global.fetch = mock(() => new Response(JSON.stringify({ data: [] }))) as any;
       
-      const provider = await ProviderManagerService.addProvider("Mock", "http://mock", "sk-mock");
+      const provider = ProviderManagerService.addProvider("Mock", "http://mock", "sk-mock");
       
-      // 2. 手動更新 DB 狀態為 Active 且包含模型 (模擬同步完成)
-      const update = testDb.query("UPDATE providers SET status = 'active', models = $models WHERE id = $id");
-      update.run({
-        $models: JSON.stringify(["gpt-4"]),
-        $id: provider.id
-      });
+      // Manually update DB status to Active and include models (simulate sync completion)
+      db.exec(`UPDATE providers SET status = 'active', models = '${JSON.stringify(["gpt-4"])}' WHERE id = '${provider.id}'`);
 
-      // 3. 測試分發
-      const selected = DispatcherService.getProviderForModel("gpt-4");
+      // Test dispatch
+      const selected = DispatcherService.getProviderForModel("gpt-4"); // No await
       expect(selected).not.toBeNull();
       expect(selected?.id).toBe(provider.id);
 
       global.fetch = originalFetch;
     });
 
-    it("找不到模型時應返回 null", () => {
-      const selected = DispatcherService.getProviderForModel("non-existent-model");
+    it("找不到模型時應返回 null", () => { // No longer async
+      const selected = DispatcherService.getProviderForModel("non-existent-model"); // No await
       expect(selected).toBeNull();
     });
   });
