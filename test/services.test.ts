@@ -32,7 +32,7 @@ describe("服務層測試 (Services Tests)", () => {
   });
 
   describe("DispatcherService (分發服務)", () => {
-    it("應能找到支持特定模型的提供商", () => { // No longer async
+    it("應能找到支持特定模型的提供商", async () => {
       // Mock fetch to avoid real network requests
       const originalFetch = global.fetch;
       global.fetch = mock(() => new Response(JSON.stringify({ data: [] }))) as any;
@@ -43,15 +43,15 @@ describe("服務層測試 (Services Tests)", () => {
       db.exec(`UPDATE providers SET status = 'active', models = '${JSON.stringify(["gpt-4"])}' WHERE id = '${provider.id}'`);
 
       // Test dispatch
-      const selected = DispatcherService.getProviderForModel("gpt-4"); // No await
+      const selected = await DispatcherService.getProviderForModel("gpt-4");
       expect(selected).not.toBeNull();
       expect(selected?.id).toBe(provider.id);
 
       global.fetch = originalFetch;
     });
 
-    it("找不到模型時應返回 null", () => { // No longer async
-      const selected = DispatcherService.getProviderForModel("non-existent-model"); // No await
+    it("找不到模型時應返回 null", async () => {
+      const selected = await DispatcherService.getProviderForModel("non-existent-model");
       expect(selected).toBeNull();
     });
   });

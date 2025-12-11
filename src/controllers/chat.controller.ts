@@ -67,7 +67,7 @@ export const ChatController = new Elysia({ prefix: "/v1" })
 
     // 分發 (Dispatcher)
     // 根據請求的模型查找合適的提供商
-    const provider = DispatcherService.getProviderForModel(payload.model);
+    const provider = await DispatcherService.getProviderForModel(payload.model);
 
     if (!provider) {
       set.status = 404;
@@ -87,7 +87,7 @@ export const ChatController = new Elysia({ prefix: "/v1" })
     let noProvider = false;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
-      const currentProvider = attempt === 1 ? provider : DispatcherService.getProviderForModel(payload.model);
+      const currentProvider = attempt === 1 ? provider : await DispatcherService.getProviderForModel(payload.model);
       if (!currentProvider) {
         noProvider = true;
         break;

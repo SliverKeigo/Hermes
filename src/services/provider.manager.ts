@@ -118,18 +118,14 @@ export class ProviderManagerService {
     try {
       const rawModels = await this.fetchModelsFromUpstream(provider.baseUrl, provider.apiKey);
 
-      const candidateModels = rawModels.filter(modelId => {
-        const id = modelId.toLowerCase();
-        return id.includes('gpt') || id.includes('claude') || id.includes('gemini') || id.includes('deepseek');
-      });
 
-      logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${candidateModels.length}`);
+      logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${rawModels.length}`);
 
       const validModels: string[] = [];
       // 先清空模型列表
       this.updateProviderStatus(provider.id, 'syncing', []);
 
-      for (const model of candidateModels) {
+      for (const model of rawModels) {
         // 低 RPM 保護：5秒
         await new Promise(resolve => setTimeout(resolve, 5000));
 
