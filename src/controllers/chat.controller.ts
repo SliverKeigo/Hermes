@@ -85,6 +85,7 @@ export const ChatController = new Elysia({ prefix: "/v1" })
     try {
       return await ProxyService.forwardRequest(provider, payload);
     } catch (error) {
+      logger.error("[ChatController] 上游轉發失敗", error);
       set.status = 502; // Bad Gateway
       return {
         error: {

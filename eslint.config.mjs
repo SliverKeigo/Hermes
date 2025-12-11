@@ -2,6 +2,9 @@ import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
+  {
+    ignores: ['public/**/*.html'],
+  },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -45,48 +48,5 @@ export default tseslint.config(
       // If you are using TypeScript for public/js, you might need to adjust parser
     },
     // We are not using TypeScript for public/js, so no parser here
-  },
-  {
-    // Specific overrides for HTML files script tags if they are linted (optional)
-    files: ['public/**/*.html'],
-    parserOptions: {
-      ecmaVersion: 2021,
-      sourceType: 'module',
-    },
-    globals: {
-      window: 'readonly',
-      document: 'readonly',
-      localStorage: 'readonly',
-      fetch: 'readonly',
-      navigator: 'readonly',
-      console: 'readonly',
-      marked: 'readonly', // Global from CDN in chat.html
-      I18n: 'readonly', // Global from i18n.js
-      API_BASE: 'readonly', // Global in HTML scripts
-      LOG_LIMIT: 'readonly',
-      requestLogCurrentPage: 'writable',
-      syncLogCurrentPage: 'writable',
-      loadModels: 'readonly',
-      fetchLogs: 'readonly',
-      fetchRequestLogs: 'readonly',
-      fetchSyncLogs: 'readonly',
-      deleteProvider: 'readonly',
-      clearRequestFilters: 'readonly',
-      clearSyncFilters: 'readonly',
-      formatDate: 'readonly',
-      getStatusColor: 'readonly',
-      // And for chat.html:
-      appendMessage: 'readonly',
-      appendLoading: 'readonly',
-      updateMessageContent: 'readonly',
-      scrollToBottom: 'readonly',
-      escapeHtml: 'readonly',
-      sendMessage: 'readonly',
-    },
-    rules: {
-      'no-undef': 'error',
-      'no-unused-vars': 'off', // Often scripts in HTML have unused functions
-      'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
-    },
   },
 );

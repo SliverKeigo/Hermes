@@ -38,8 +38,9 @@ const app = new Elysia()
   })
   // 全局請求日誌中間件 (Global Request Logger)
   .onAfterResponse(({ request, set, store, body }) => {
-    // 忽略頻繁的輪詢請求
-    if (request.url.includes("/admin/providers") && request.method === "GET") return;
+    // 只記錄 /v1/chat/completions 路徑的日誌
+    const requestPath = new URL(request.url).pathname;
+    if (requestPath !== "/v1/chat/completions") return;
 
     const duration = Math.floor(performance.now() - (store.startTime || performance.now()));
     const ip = app.server?.requestIP(request)?.address;
@@ -50,14 +51,14 @@ const app = new Elysia()
         if (typeof body === 'object' && body && 'model' in body) {
             model = (body as any).model;
         }
-    } catch (e) { /* ignore */ }
+    } catch { /* ignore */ }
 
     logger.info(`[${set.status}] ${request.method} ${request.url} - ${duration}ms`);
 
     // 持久化日誌
     LogService.logRequest({
         method: request.method,
-        path: new URL(request.url).pathname,
+        path: requestPath,
         model,
         status: typeof set.status === 'number' ? set.status : 200,
         duration,
@@ -71,18 +72,12 @@ const app = new Elysia()
   // 根路徑健康檢查
   .get("/", () => "Hermes AI Gateway is running 🚀 (赫爾墨斯 AI 網關正在運行)")
 
-  // [NEW] 提供前端儀表板頁面
+  // 提供前端儀表板頁面
   .get("/dashboard", () => Bun.file("public/index.html"))
   .get("/logs", () => Bun.file("public/logs.html"))
   .get("/settings", () => Bun.file("public/settings.html"))
   .get("/chat", () => Bun.file("public/chat.html"))
   .get("/logo.png", () => Bun.file("public/Hermes.png"))
-
-  // [NEW] i18n 資源
-  .get("/js/i18n.js", () => Bun.file("public/js/i18n.js"))
-  .get("/locales/zh-CN.json", () => Bun.file("public/locales/zh-CN.json"))
-  .get("/locales/zh-TW.json", () => Bun.file("public/locales/zh-TW.json"))
-  .get("/locales/en-US.json", () => Bun.file("public/locales/en-US.json"))
 
   // 全局錯誤處理 (Global Error Handler)
   .onError(({ code, error }) => {
@@ -108,5 +103,9 @@ logger.info(
 
 logger.info("Hermes AI Gateway initialized. (赫爾墨斯網關已初始化)");
 
-// [NEW] 啟動 Provider 週期性同步任務
-ProviderManagerService.startPeriodicSync(config.periodicSyncInterval); // 使用配置的時間間隔
+// [NEW] 啟動 Provider 週期性同步任務 (只啟動一次)
+let periodicSyncTaskStarted = false; // 添加一個標誌
+if (!periodicSyncTaskStarted) {
+  ProviderManagerService.startPeriodicSync(); // 不帶參數調用
+  periodicSyncTaskStarted = true;
+}
