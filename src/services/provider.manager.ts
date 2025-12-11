@@ -2,13 +2,14 @@ import { db } from "../db";
 import { AIProvider } from "../config/providers";
 import { logger } from "../utils/logger";
 import { LogService } from "./log.service";
+import { config } from "../config"; // 導入 config
 
 // 提供商管理服務 (Provider Manager Service) - SQLite 版 (同步版)
 export class ProviderManagerService {
+  private static periodicSyncIntervalId: Timer | undefined; // 使用 Timer 類型
   
   // 獲取所有提供商
   static getAll(): AIProvider[] {
-    // 使用 db.query() 和 .all()
     const results = db.query(`SELECT * FROM providers ORDER BY createdAt DESC`).all() as any[];
     
     // 反序列化 models 字段
@@ -60,6 +61,34 @@ export class ProviderManagerService {
     } else {
       db.exec(`UPDATE providers SET status = '${status}' WHERE id = '${id}'`);
     }
+  }
+
+  // 啟動所有 Provider 的週期性同步任務
+  static startPeriodicSync(intervalMs: number): void {
+    if (this.periodicSyncIntervalId) {
+        clearInterval(this.periodicSyncIntervalId); // 如果已存在，先清除
+    }
+
+    logger.info(`[定時任務] Provider 週期性同步已啟動，間隔 ${intervalMs / 1000} 秒`);
+    this.periodicSyncIntervalId = setInterval(() => {
+      logger.info(`[定時任務] 開始執行所有 Provider 的同步`);
+      const allProviders = ProviderManagerService.getAll();
+      allProviders.forEach(provider => {
+        // 為每個 Provider 啟動獨立的同步任務，不阻塞主循環
+        this.backgroundSyncTask(provider);
+      });
+    }, intervalMs);
+  }
+
+  // 獲取當前定時任務間隔
+  static getPeriodicSyncInterval(): number {
+      return config.periodicSyncInterval;
+  }
+
+  // 設置定時任務間隔 (並重啟定時器)
+  static setPeriodicSyncInterval(newIntervalMs: number): void {
+      config.periodicSyncInterval = newIntervalMs; // 更新配置
+      this.startPeriodicSync(newIntervalMs); // 重啟定時器
   }
 
   // 後台異步任務 (仍然是異步的)

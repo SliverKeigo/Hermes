@@ -5,7 +5,14 @@ import { config } from "./config";
 import { ChatController } from "./controllers/chat.controller";
 import { AdminController } from "./controllers/admin.controller";
 import { LogService } from "./services/log.service"; // [NEW]
+import { ProviderManagerService } from "./services/provider.manager"; // [NEW] 引入 ProviderManagerService
 import { logger } from "./utils/logger";
+
+// 初始化 SQLite 數據庫
+// (這部分是在 src/db.ts 中執行的，這裡無需重複)
+
+// 初始化表結構 (由 src/db.ts 處理，這裡無需重複)
+// async function initializeSchema() { ... }
 
 // 初始化 Elysia 應用實例
 const app = new Elysia()
@@ -67,6 +74,7 @@ const app = new Elysia()
   // [NEW] 提供前端儀表板頁面
   .get("/dashboard", () => Bun.file("public/index.html"))
   .get("/logs", () => Bun.file("public/logs.html"))
+  .get("/settings", () => Bun.file("public/settings.html"))
   .get("/chat", () => Bun.file("public/chat.html"))
   .get("/logo.png", () => Bun.file("public/Hermes.png"))
 
@@ -89,6 +97,8 @@ const app = new Elysia()
   // 啟動服務器監聽端口
   .listen(config.port);
 
+// 確保在數據庫初始化後啟動 Elysia App 和定時任務
+// db.ts 已經在模塊加載時自動執行初始化，所以這裡直接調用
 logger.info(
   `🦊 Hermes is running at ${app.server?.hostname}:${app.server?.port}`
 );
@@ -96,4 +106,7 @@ logger.info(
   `📊 Dashboard available at http://localhost:${config.port}/dashboard`
 );
 
-logger.info("Hermes AI Gateway initialized.");
+logger.info("Hermes AI Gateway initialized. (赫爾墨斯網關已初始化)");
+
+// [NEW] 啟動 Provider 週期性同步任務
+ProviderManagerService.startPeriodicSync(config.periodicSyncInterval); // 使用配置的時間間隔
