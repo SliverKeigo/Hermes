@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hermes 系統日誌</title>
+    <title>Hermes 系统日志</title>
     <link rel="icon" href="/logo.png" type="image/png">
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
@@ -15,57 +15,57 @@
             <div>
                 <h1 class="text-3xl font-bold text-gray-800 flex items-center gap-3">
                     <img src="/logo.png" alt="Hermes Logo" class="w-10 h-10 rounded-full shadow-sm object-cover">
-                    系統日誌監控
+                    系统日志监控
                 </h1>
-                <p class="text-gray-600 mt-1">查看 API 請求與後台同步記錄</p>
+                <p class="text-gray-600 mt-1">查看 API 请求与后台同步记录</p>
             </div>
             <div class="flex gap-2">
                 <a href="/dashboard" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
                     <i class="fa-solid fa-arrow-left"></i> 返回控制台
                 </a>
                 <button onclick="fetchLogs()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition flex items-center gap-2">
-                    <i class="fa-solid fa-rotate-right"></i> 刷新日誌
+                    <i class="fa-solid fa-rotate-right"></i> 刷新日志
                 </button>
             </div>
         </header>
 
-        <!-- API 請求日誌 -->
+        <!-- API 请求日誌 -->
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 mb-8 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-globe text-blue-500"></i> API 請求日誌
+                    <i class="fa-solid fa-globe text-blue-500"></i> API 请求日志 (/v1/chat/completions 路径)
                 </h2>
                 <div class="flex items-center gap-2">
-                    <label class="text-sm text-gray-600">頁數:</label>
+                    <label class="text-sm text-gray-600">页数:</label>
                     <input type="number" id="reqLogPageInput" value="1" min="1" class="w-16 px-2 py-1 border rounded-md text-sm text-center">
-                    <button id="reqLogPrevBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">上一頁</button>
-                    <button id="reqLogNextBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">下一頁</button>
+                    <button id="reqLogPrevBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">上一页</button>
+                    <button id="reqLogNextBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">下一页</button>
                 </div>
             </div>
             <!-- 過濾條件 -->
             <div class="px-6 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap gap-3 items-center text-sm">
                 <input type="text" id="reqFilterMethod" placeholder="方法 (GET/POST)" class="w-32 px-2 py-1 border rounded-md">
-                <input type="text" id="reqFilterPath" placeholder="路徑" class="w-40 px-2 py-1 border rounded-md">
+                <input type="text" id="reqFilterPath" placeholder="路径" class="w-40 px-2 py-1 border rounded-md">
                 <input type="text" id="reqFilterModel" placeholder="模型" class="w-32 px-2 py-1 border rounded-md">
-                <input type="number" id="reqFilterStatus" placeholder="狀態碼" class="w-24 px-2 py-1 border rounded-md">
-                <button onclick="requestLogCurrentPage=1; fetchRequestLogs(1);" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">篩選</button>
+                <input type="number" id="reqFilterStatus" placeholder="状态码" class="w-24 px-2 py-1 border rounded-md">
+                <button onclick="requestLogCurrentPage=1; fetchRequestLogs(1);" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">筛选</button>
                 <button onclick="clearRequestFilters();" class="px-3 py-1 bg-gray-400 text-white rounded-md hover:bg-gray-500">清除</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3">時間</th>
+                            <th class="px-6 py-3">时间</th>
                             <th class="px-6 py-3">方法</th>
-                            <th class="px-6 py-3">路徑</th>
+                            <th class="px-6 py-3">路径</th>
                             <th class="px-6 py-3">模型</th>
-                            <th class="px-6 py-3">狀態</th>
-                            <th class="px-6 py-3">耗時</th>
+                            <th class="px-6 py-3">状态</th>
+                            <th class="px-6 py-3">耗时</th>
                             <th class="px-6 py-3">IP</th>
                         </tr>
                     </thead>
                     <tbody id="requestLogsBody">
-                        <tr><td colspan="7" class="px-6 py-4 text-center">加載中...</td></tr>
+                        <tr><td colspan="7" class="px-6 py-4 text-center">加载中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -75,40 +75,40 @@
         <div class="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
             <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                 <h2 class="text-lg font-semibold text-gray-800 flex items-center gap-2">
-                    <i class="fa-solid fa-sync text-green-500"></i> 後台同步日誌
+                    <i class="fa-solid fa-sync text-green-500"></i> 后台同步日志
                 </h2>
                 <div class="flex items-center gap-2">
-                    <label class="text-sm text-gray-600">頁數:</label>
+                    <label class="text-sm text-gray-600">页数:</label>
                     <input type="number" id="syncLogPageInput" value="1" min="1" class="w-16 px-2 py-1 border rounded-md text-sm text-center">
-                    <button id="syncLogPrevBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">上一頁</button>
-                    <button id="syncLogNextBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">下一頁</button>
+                    <button id="syncLogPrevBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">上一页</button>
+                    <button id="syncLogNextBtn" class="px-3 py-1 bg-gray-200 rounded text-gray-700 hover:bg-gray-300">下一页</button>
                 </div>
             </div>
             <!-- 過濾條件 -->
             <div class="px-6 py-3 bg-gray-100 border-b border-gray-200 flex flex-wrap gap-3 items-center text-sm">
-                <input type="text" id="syncFilterProviderName" placeholder="提供商名稱" class="w-40 px-2 py-1 border rounded-md">
+                <input type="text" id="syncFilterProviderName" placeholder="提供商名称" class="w-40 px-2 py-1 border rounded-md">
                 <input type="text" id="syncFilterModel" placeholder="模型" class="w-32 px-2 py-1 border rounded-md">
                 <select id="syncFilterResult" class="px-2 py-1 border rounded-md">
-                    <option value="">所有結果</option>
+                    <option value="">所有结果</option>
                     <option value="success">成功</option>
-                    <option value="failure">失敗</option>
+                    <option value="failure">失败</option>
                 </select>
-                <button onclick="syncLogCurrentPage=1; fetchSyncLogs(1);" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">篩選</button>
+                <button onclick="syncLogCurrentPage=1; fetchSyncLogs(1);" class="px-3 py-1 bg-blue-600 text-white rounded-md hover:bg-blue-700">筛选</button>
                 <button onclick="clearSyncFilters();" class="px-3 py-1 bg-gray-400 text-white rounded-md hover:bg-gray-500">清除</button>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full text-sm text-left text-gray-500">
                     <thead class="text-xs text-gray-700 uppercase bg-gray-50">
                         <tr>
-                            <th class="px-6 py-3">時間</th>
+                            <th class="px-6 py-3">时间</th>
                             <th class="px-6 py-3">提供商</th>
                             <th class="px-6 py-3">模型</th>
-                            <th class="px-6 py-3">結果</th>
-                            <th class="px-6 py-3">詳情</th>
+                            <th class="px-6 py-3">结果</th>
+                            <th class="px-6 py-3">详情</th>
                         </tr>
                     </thead>
                     <tbody id="syncLogsBody">
-                        <tr><td colspan="5" class="px-6 py-4 text-center">加載中...</td></tr>
+                        <tr><td colspan="5" class="px-6 py-4 text-center">加载中...</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -117,12 +117,12 @@
 
     <script>
         const API_BASE = '/admin';
-        const LOG_LIMIT = 10; // 每頁顯示 10 條日誌
+        const LOG_LIMIT = 10; // 每页显示 10 条日志
 
         let requestLogCurrentPage = 1;
         let syncLogCurrentPage = 1;
 
-        // 初始化輸入框
+        // 初始化输入框
         document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('reqLogPageInput').value = requestLogCurrentPage;
             document.getElementById('syncLogPageInput').value = syncLogCurrentPage;
@@ -179,14 +179,14 @@
 
             try {
                 const reqBody = document.getElementById('requestLogsBody');
-                reqBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">加載中...</td></tr>';
+                reqBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">加载中...</td></tr>';
 
                 const reqRes = await fetch(`${API_BASE}/request-logs?${queryString}`);
                 const reqData = await reqRes.json();
                 
                 reqBody.innerHTML = '';
                 if (reqData.data.length === 0) {
-                    reqBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">暫無數據</td></tr>';
+                    reqBody.innerHTML = '<tr><td colspan="7" class="px-6 py-4 text-center">暂无数据</td></tr>';
                     document.getElementById('reqLogNextBtn').disabled = true;
                 } else {
                     reqData.data.forEach(log => {
@@ -208,7 +208,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                document.getElementById('reqLogPageInput').value = `${page} (加載失敗)`;
+                document.getElementById('reqLogPageInput').value = `${page} (加载失败)`;
             }
         }
 
@@ -231,14 +231,14 @@
 
             try {
                 const syncBody = document.getElementById('syncLogsBody');
-                syncBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">加載中...</td></tr>';
+                syncBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">加载中...</td></tr>';
 
                 const syncRes = await fetch(`${API_BASE}/sync-logs?${queryString}`);
                 const syncData = await syncRes.json();
                 
                 syncBody.innerHTML = '';
                 if (syncData.data.length === 0) {
-                    syncBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">暫無數據</td></tr>';
+                    syncBody.innerHTML = '<tr><td colspan="5" class="px-6 py-4 text-center">暂无数据</td></tr>';
                     document.getElementById('syncLogNextBtn').disabled = true;
                 } else {
                     syncData.data.forEach(log => {
@@ -251,7 +251,7 @@
                             <td class="px-6 py-4 font-mono text-blue-600">${log.model}</td>
                             <td class="px-6 py-4">
                                 <span class="px-2 py-1 rounded text-xs font-medium ${isSuccess ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
-                                    ${isSuccess ? '通過' : '失敗'}
+                                    ${isSuccess ? '通过' : '失败'}
                                 </span>
                             </td>
                             <td class="px-6 py-4 text-xs text-gray-500 max-w-xs truncate" title="${log.message}">${log.message}</td>
@@ -262,7 +262,7 @@
                 }
             } catch (err) {
                 console.error(err);
-                document.getElementById('syncLogPageInput').value = `${page} (加載失敗)`;
+                document.getElementById('syncLogPageInput').value = `${page} (加载失败)`;
             }
         }
 

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-Hant">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -19,21 +19,18 @@
     </style>
 </head>
 <body class="h-screen flex flex-col md:flex-row overflow-hidden">
-    
+
     <!-- 側邊欄設置 -->
     <aside class="w-full md:w-80 bg-white border-r border-gray-200 p-6 flex flex-col z-10 shadow-lg md:shadow-none">
         <h1 class="text-2xl font-bold text-gray-800 mb-6 flex items-center gap-3">
             <img src="/logo.png" alt="Hermes Logo" class="w-8 h-8 rounded-full shadow-sm object-cover">
-            <span data-i18n="chat.settings_title">Hermes Chat</span>
+            Hermes Chat
         </h1>
-        
-        <div class="space-y-4 flex-1 overflow-y-auto">
-            <!-- Lang Switcher (Placeholder for JS injection) -->
-            <div id="lang-switcher" class="mb-4"></div>
 
+        <div class="space-y-4 flex-1 overflow-y-auto">
             <!-- API Key -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="chat.label_key">Hermes Key</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Hermes Key</label>
                 <div class="relative">
                     <input type="password" id="apiKey" class="w-full pl-9 pr-3 py-2 border rounded-md text-sm focus:ring-2 focus:ring-blue-500 outline-none" placeholder="hermes-secret-..." value="hermes-secret-key-123">
                     <i class="fa-solid fa-key absolute left-3 top-2.5 text-gray-400 text-xs"></i>
@@ -42,13 +39,13 @@
 
             <!-- Model Selector -->
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1" data-i18n="chat.label_model">選擇模型 (Model)</label>
+                <label class="block text-sm font-medium text-gray-700 mb-1">选择模型 (Model)</label>
                 <div class="relative">
                     <select id="modelSelect" class="w-full pl-9 pr-3 py-2 border rounded-md text-sm bg-white focus:ring-2 focus:ring-blue-500 outline-none appearance-none">
-                        <option value="" disabled selected data-i18n="common.loading">加載中...</option>
+                        <option value="" disabled selected>加载中...</option>
                     </select>
                     <i class="fa-solid fa-robot absolute left-3 top-2.5 text-gray-400 text-xs"></i>
-                    <button onclick="loadModels()" class="absolute right-2 top-2 text-gray-400 hover:text-blue-600" data-i18n="chat.refresh_model" data-i18n-target="title">
+                    <button onclick="loadModels()" class="absolute right-2 top-2 text-gray-400 hover:text-blue-600" title="刷新模型">
                         <i class="fa-solid fa-rotate-right text-xs"></i>
                     </button>
                 </div>
@@ -57,19 +54,19 @@
             <!-- Parameters -->
             <div class="border-t pt-4 mt-4">
                 <label class="flex items-center justify-between cursor-pointer mb-3">
-                    <span class="text-sm font-medium text-gray-700" data-i18n="chat.label_stream">流式響應 (Stream)</span>
+                    <span class="text-sm font-medium text-gray-700">流式响应 (Stream)</span>
                     <input type="checkbox" id="streamToggle" checked class="sr-only peer">
                     <div class="relative w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
-                
+
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1"><span data-i18n="chat.label_temp">溫度</span>: <span id="tempValue">0.7</span></label>
-                    <input type="range" id="tempRange" min="0" max="2" step="0.1" value="0.7" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">温度 (Temperature): <span id="tempValue">0.7</span></label>
+                    <input type="range" id="tempRange" min="0" max="2" step="0.1" value="0.7" class="w-full h-2 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-lg appearance-none cursor-pointer">
                 </div>
             </div>
         </div>
 
-        <div class="mt-4 pt-4 border-t text-xs text-gray-400 text-center" data-i18n="chat.powered_by">
+        <div class="mt-4 pt-4 border-t text-xs text-gray-400 text-center">
             Powered by Hermes AI Gateway
         </div>
     </aside>
@@ -84,7 +81,7 @@
                     <i class="fa-solid fa-robot text-blue-600 text-sm"></i>
                 </div>
                 <div class="flex-1 bg-white p-4 rounded-lg shadow-sm border border-gray-100">
-                    <p class="text-gray-800" data-i18n="chat.welcome">你好！我是 Hermes 測試助手。請在左側配置 Key 和模型，然後開始對話。</p>
+                    <p class="text-gray-800">你好！我是 Hermes 测试助手。请在左侧配置 Key 和模型，然后开始对话。</p>
                 </div>
             </div>
         </div>
@@ -92,7 +89,7 @@
         <!-- 輸入框 -->
         <div class="absolute bottom-0 left-0 right-0 bg-white border-t p-4">
             <div class="max-w-3xl mx-auto relative">
-                <textarea id="userInput" rows="1" class="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none shadow-sm max-h-32" data-i18n="chat.ph_input" data-i18n-target="placeholder" placeholder="發送消息... (Shift + Enter 換行)"></textarea>
+                <textarea id="userInput" rows="1" class="w-full pl-4 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none resize-none shadow-sm max-h-32" placeholder="发送消息... (Shift + Enter 换行)"></textarea>
                 <button id="sendBtn" class="absolute right-2 bottom-2 p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
                     <i class="fa-solid fa-paper-plane"></i>
                 </button>
@@ -100,14 +97,11 @@
         </div>
     </main>
 
-    <script src="/js/i18n.js"></script>
     <script>
-        // ... (省略其他 JS 邏輯)
+        const API_BASE = '/admin';
 
-        // 在 i18n 初始化完成後再調用 loadModels()
-        window.i18n.init().then(() => {
-            loadModels();
-        });
+
+        loadModels();
     </script>
 </body>
 </html>
