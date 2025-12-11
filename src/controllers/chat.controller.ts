@@ -80,21 +80,60 @@ export const ChatController = new Elysia({ prefix: "/v1" })
       };
     }
 
-    // 代理 (Proxy)
-    // 將請求轉發給選定的提供商
-    try {
-      return await ProxyService.forwardRequest(provider, payload);
-    } catch (error) {
-      logger.error("[ChatController] 上游轉發失敗", error);
-      set.status = 502; // Bad Gateway
+    // 代理 (Proxy) + 重試，最多 3 次，失敗後由冷卻機制避開問題上游
+    const maxRetries = 3;
+    let lastErrorResponse: Response | null = null;
+    let lastError: any = null;
+    let noProvider = false;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const currentProvider = attempt === 1 ? provider : DispatcherService.getProviderForModel(payload.model);
+      if (!currentProvider) {
+        noProvider = true;
+        break;
+      }
+
+      try {
+        const upstream = await ProxyService.forwardRequest(currentProvider, payload);
+        if (upstream instanceof Response) {
+          if (upstream.ok) {
+            return upstream; // 成功的 Response 直接返回
+          }
+          lastErrorResponse = upstream; // 記錄上游錯誤，嘗試下一個供應商
+          continue;
+        }
+        return upstream; // 非 Response 的 JSON 對象，視為成功
+      } catch (error) {
+        lastError = error;
+        // 交給冷卻機制處理，嘗試下一個供應商
+        continue;
+      }
+    }
+
+    if (lastErrorResponse) {
+      return lastErrorResponse;
+    }
+
+    if (noProvider) {
+      set.status = 404;
       return {
         error: {
-          message: "無法與上游提供商通信 (Failed to communicate with upstream provider).",
-          type: "api_error",
-          code: "upstream_error"
+          message: `沒有上游服務站支持模型 '${payload.model}' (Model not supported).`,
+          type: "invalid_request_error",
+          code: "model_not_found"
         }
       };
     }
+
+    logger.error(`[ChatController] 上游轉發失敗 (重試耗盡) model=${payload.model}`, lastError);
+    set.status = 502; // Bad Gateway
+    return {
+      error: {
+        message: "無法與上游提供商通信 (Failed to communicate with upstream provider).",
+        type: "api_error",
+        code: "upstream_error"
+      }
+    };
   }, {
     // 請求體驗證 (Request Body Validation)
     body: t.Object({
