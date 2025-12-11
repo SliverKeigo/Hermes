@@ -11,6 +11,7 @@ db.exec(`
     models TEXT DEFAULT '[]',
     status TEXT DEFAULT 'pending',
     lastSyncedAt INTEGER,
+    lastUsedAt INTEGER,
     createdAt INTEGER
   );
 `);

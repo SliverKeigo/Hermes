@@ -10,6 +10,17 @@ const db = new Database(dbFile, { create: true });
 // 啟用 WAL 模式以提高並發性能
 db.exec("PRAGMA journal_mode = WAL;");
 
+// 確保 providers 表包含最新欄位（兼容已有數據庫）
+const ensureProviderColumns = () => {
+  const columns = db.query(`PRAGMA table_info(providers)`).all() as { name: string }[];
+  const columnNames = columns.map(c => c.name);
+
+  // 新增 lastUsedAt 欄位以紀錄最近同步/使用時間
+  if (!columnNames.includes("lastUsedAt")) {
+    db.exec(`ALTER TABLE providers ADD COLUMN lastUsedAt INTEGER;`);
+  }
+};
+
 // 初始化表結構
 db.exec(`
   CREATE TABLE IF NOT EXISTS providers (
@@ -20,6 +31,7 @@ db.exec(`
     models TEXT DEFAULT '[]', -- 存儲為 JSON 字符串
     status TEXT DEFAULT 'pending',
     lastSyncedAt INTEGER,
+    lastUsedAt INTEGER,
     createdAt INTEGER
   );
 
@@ -52,6 +64,8 @@ db.exec(`
     lastUsedAt INTEGER
   );
 `);
+
+ensureProviderColumns();
 
 logger.info("SQLite 數據庫已連接並初始化 (hermes.db)");
 

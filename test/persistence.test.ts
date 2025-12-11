@@ -11,6 +11,7 @@ db.exec(`
     models TEXT DEFAULT '[]', -- Stored as JSON string
     status TEXT DEFAULT 'pending',
     lastSyncedAt INTEGER,
+    lastUsedAt INTEGER,
     createdAt INTEGER
   );
 

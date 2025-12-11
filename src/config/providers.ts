@@ -7,5 +7,6 @@ export interface AIProvider {
   models: string[]; // 經過篩選和驗證後的模型列表
   status: 'pending' | 'syncing' | 'active' | 'error'; // 同步狀態
   lastSyncedAt?: number; // 上次同步時間
+  lastUsedAt?: number; // 最近成功同步或使用時間
   createdAt: number; // 創建時間
 }
