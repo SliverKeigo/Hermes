@@ -1,0 +1,13 @@
+node_modules
+bun.lockb
+.git
+.github
+test
+docs
+hermes.db
+hermes.db-shm
+hermes.db-wal
+npm-debug.log*
+yarn-error.log*
+.DS_Store
+tmp
