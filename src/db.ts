@@ -4,7 +4,8 @@ import { logger } from "./utils/logger";
 // 初始化 SQLite 數據庫
 // 數據將持久化存儲在項目根目錄的 hermes.db 文件中
 // 如果是測試環境，使用內存數據庫以避免汙染
-const dbFile = process.env.NODE_ENV === 'test' ? ':memory:' : 'hermes.db';
+const isTestEnv = process.env.NODE_ENV === 'test' || process.env.BUN_TEST === '1';
+const dbFile = isTestEnv ? ':memory:' : (process.env.DB_PATH || 'hermes.db');
 const db = new Database(dbFile, { create: true });
 
 // 啟用 WAL 模式以提高並發性能
