@@ -3,6 +3,7 @@ import { AIProvider } from "../config/providers";
 import { logger } from "../utils/logger";
 import { LogService } from "./log.service";
 import { config } from "../config"; // 導入 config
+import { DispatcherService } from "./dispatcher.service"; // [NEW] 導入 DispatcherService
 
 // 提供商管理服務 (Provider Manager Service) - SQLite 版 (同步版)
 export class ProviderManagerService {
@@ -178,21 +179,23 @@ export class ProviderManagerService {
 
         const isWorking = await this.verifyModel(provider.baseUrl, provider.apiKey, model);
 
-        if (isWorking) {
-          validModels.push(model);
-          logger.info(`[檢測通過] ${model}`);
-          // [實時更新]
-          this.updateProviderStatus(provider.id, 'syncing', validModels);
-
-          LogService.logSync({
-            providerId: provider.id,
-            providerName: provider.name,
-            model: model,
-            result: 'success',
-            message: 'Model is active and responding'
-          });
-        } else {
-          logger.warn(`[檢測失敗] ${model}`);
+                if (isWorking) {
+                  validModels.push(model);
+                  logger.info(`[檢測通過] ${model}`);
+                  // [實時更新]
+                  this.updateProviderStatus(provider.id, 'syncing', validModels);
+                  
+                  // [NEW] 解除冷卻 (如果之前被標記為故障)
+                  DispatcherService.clearCooldown(provider.id, model);
+        
+                  LogService.logSync({
+                    providerId: provider.id,
+                    providerName: provider.name,
+                    model: model,
+                    result: 'success',
+                    message: 'Model is active and responding'
+                  });
+                } else {          logger.warn(`[檢測失敗] ${model}`);
 
           LogService.logSync({
             providerId: provider.id,
@@ -263,5 +266,33 @@ export class ProviderManagerService {
       return data.data.map((m: any) => m.id);
     }
     return [];
+  }
+
+  // 當上游返回 model_not_found 時，臨時剔除模型並觸發重同步
+  static handleModelNotFound(providerId: string, model: string): boolean {
+    const row = db.query(`SELECT * FROM providers WHERE id = $id`).get({ $id: providerId }) as any;
+    if (!row) {
+      logger.warn(`[ProviderManager] 無法處理 model_not_found，Provider 不存在: ${providerId}`);
+      return false;
+    }
+
+    const models: string[] = JSON.parse(row.models || "[]");
+    if (!models.includes(model)) {
+      logger.info(`[ProviderManager] model_not_found: Provider ${providerId} 未列出模型 ${model}，略過剔除`);
+      return false;
+    }
+
+    const nextModels = models.filter(m => m !== model);
+    db.exec(`UPDATE providers SET models = '${JSON.stringify(nextModels)}', status = 'syncing', lastUsedAt = ${Date.now()} WHERE id = '${providerId}'`);
+    logger.warn(`[ProviderManager] 上游回報 model_not_found，暫時移除模型並重同步: provider=${providerId} model=${model}`);
+
+    // 立即觸發一次重同步，刷新模型列表
+    try {
+      this.triggerResync(providerId);
+    } catch (error) {
+      logger.error(`[ProviderManager] 重同步失敗 (model_not_found): provider=${providerId}`, error);
+    }
+
+    return true;
   }
 }

@@ -3,6 +3,7 @@ import { ChatCompletionRequest } from "../models/openai.types";
 import { logger } from "../utils/logger";
 import { DispatcherService } from "./dispatcher.service";
 import { LogService } from "./log.service";
+import { ProviderManagerService } from "./provider.manager";
 
 // 代理服務 (Proxy Service)
 // 負責將請求轉發給上游提供商並處理響應
@@ -30,6 +31,21 @@ export class ProxyService {
         const errorText = await response.text();
         const contentType = response.headers.get("content-type") || "text/plain";
         logger.error(`來自 ${provider.name} 的上游錯誤: ${response.status} - ${errorText}`);
+
+        // 針對 model_not_found，臨時移除並觸發重同步，避免持續命中失效模型
+        const parsedError = (() => {
+          try { return JSON.parse(errorText); } catch { return null; }
+        })();
+        const errorCode = parsedError?.error?.code || parsedError?.code;
+        const errorType = parsedError?.error?.type || parsedError?.type;
+        const isModelMissing =
+          errorCode === "model_not_found" ||
+          errorType === "model_not_found" ||
+          (typeof parsedError?.error?.message === "string" && parsedError.error.message.includes("model_not_found"));
+        if (isModelMissing || response.status === 404) {
+          ProviderManagerService.handleModelNotFound(provider.id, payload.model);
+        }
+
         // 將該 provider+model 置入冷卻期，避免短時間內繼續命中
         DispatcherService.penalize(provider.id, payload.model);
         LogService.trackUpstreamError(provider.id, provider.name, payload.model);

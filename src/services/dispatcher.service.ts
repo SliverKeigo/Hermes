@@ -21,6 +21,15 @@ export class DispatcherService {
     logger.warn(`[Dispatcher] 暫停上游: provider=${providerId} model=${modelName} 直到 ${new Date(until).toISOString()} (backoff=${backoffMs}ms)`);
   }
 
+  // [NEW] 清除冷卻 (用於同步成功後的大赦)
+  static clearCooldown(providerId: string, modelName: string) {
+    const key = this.key(providerId, modelName);
+    if (this.cooldowns.has(key)) {
+      this.cooldowns.delete(key);
+      logger.info(`[Dispatcher] 解除冷卻 (同步成功): provider=${providerId} model=${modelName}`);
+    }
+  }
+
   static penalize(providerId: string, modelName: string, durationMs = this.INITIAL_PENALTY_MS) {
     const key = this.key(providerId, modelName);
     const existing = this.cooldowns.get(key);
@@ -58,6 +67,17 @@ export class DispatcherService {
   private static async isAvailable(provider: AIProvider, modelName: string): Promise<boolean> {
     const key = this.key(provider.id, modelName);
     const entry = this.cooldowns.get(key);
+
+    // [NEW] 信任機制：如果後台剛剛同步成功 (例如 5 分鐘內)，則無條件信任
+    const RECENT_SYNC_THRESHOLD = 5 * 60 * 1000;
+    if (provider.lastSyncedAt && (Date.now() - provider.lastSyncedAt < RECENT_SYNC_THRESHOLD)) {
+      if (entry) {
+        this.cooldowns.delete(key);
+        logger.info(`[Dispatcher] 信任後台同步結果，強制解除冷卻: provider=${provider.id}`);
+      }
+      return true;
+    }
+
     if (!entry) return true;
 
     const now = Date.now();
@@ -89,22 +109,34 @@ export class DispatcherService {
   // 根據模型名稱獲取提供商 (Get Provider for Model)
   static async getProviderForModel(modelName: string, excludedIds: string[] = []): Promise<AIProvider | null> {
     // 1. 從數據庫中獲取所有活躍的提供商
-    const allProviders = await ProviderManagerService.getAll();
+    const allProviders = ProviderManagerService.getAll();
+    logger.info(`[Dispatcher] providers 模型列表: ${JSON.stringify(allProviders.map(p => ({ id: p.id, name: p.name, models: p.models })))} `);
 
-    // 2. 查找支持該模型且狀態為 active 的提供商，並排除已嘗試過的
+    // 2. 過濾出支持該模型且狀態為 active 或 syncing 的提供商
     const candidates = allProviders.filter(p =>
-      p.status === 'active' &&
+      (p.status === 'active' || p.status === 'syncing') &&
       p.models.includes(modelName) &&
       !excludedIds.includes(p.id)
     );
 
     if (candidates.length === 0) {
-      // 如果是因為排除完了導致沒有候選，可能需要記錄一下
-      if (excludedIds.length > 0) {
-        logger.warn(`所有支持模型 ${modelName} 的活躍提供商都已嘗試失敗`);
-      } else {
-        logger.warn(`未找到支持該模型的活躍提供商: ${modelName}`);
+      const reason = excludedIds.length > 0
+        ? "所有支持該模型的活躍提供商都已嘗試失敗"
+        : "未找到支持該模型的活躍提供商";
+      logger.warn(`${reason}: ${modelName}`);
+      return null;
+    }
+
+    // 3. 隨機打亂候選，避免固定順序導致的偏斜
+    for (const provider of this.shuffle(candidates)) {
+      const available = await this.isAvailable(provider, modelName);
+      if (!available) {
+        logger.info(`[Dispatcher] provider=${provider.id} (${provider.name}) 冷卻中，跳過`);
+        continue;
       }
+
+      logger.info(`[Dispatcher] 選擇上游: provider=${provider.id} (${provider.name}) model=${modelName}`);
+      return provider;
     }
 
     logger.warn(`所有支持模型 ${modelName} 的上游均在冷卻中`);
