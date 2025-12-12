@@ -112,7 +112,6 @@ export class DispatcherService {
   static async getProviderForModel(modelName: string, excludedIds: string[] = []): Promise<{ provider: AIProvider; resolvedModel: string } | null> {
     // 1. 從數據庫中獲取所有活躍的提供商
     const allProviders = ProviderManagerService.getAll();
-    logger.info(`[Dispatcher] providers 模型列表: ${JSON.stringify(allProviders.map(p => ({ id: p.id, name: p.name, models: p.models })))} `);
 
     const aliasMaps = buildModelAliasMaps(allProviders);
     const normalizedInput = normalizeModelName(modelName).canonical || modelName;
