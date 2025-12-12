@@ -77,6 +77,17 @@
                     </div>
                     <p id="currentIntervalDisplay" class="text-sm text-gray-500 mt-2">当前间隔: <span></span></p>
                 </div>
+                <div class="pt-2 border-t border-gray-100">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">聊天请求最大重试次数</label>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="chatRetryInput" min="1" class="w-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500" value="3">
+                        <span class="text-gray-600">次</span>
+                        <button onclick="setChatMaxRetries()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition font-medium">
+                            保存设置
+                        </button>
+                    </div>
+                    <p id="currentChatRetryDisplay" class="text-sm text-gray-500 mt-2">当前重试: <span></span></p>
+                </div>
             </div>
         </div>
 
@@ -93,6 +104,7 @@
         window.refreshSettings = () => {
             fetchKeys();
             fetchPeriodicSyncInterval();
+            fetchChatMaxRetries();
         };
 
         // 渲染密鑰列表 (與 Dashboard 頁面邏輯類似)
@@ -268,6 +280,45 @@
                 if (result.success) {
                     alert(`设置成功！新的间隔为 ${result.newIntervalHours} 小时。`);
                     fetchPeriodicSyncInterval();
+                } else {
+                    alert(`错误: ${result.error}`);
+                }
+            } catch (err) {
+                alert(`错误: ${err.message}`);
+            }
+        };
+
+        // 獲取並顯示聊天最大重試次數
+        async function fetchChatMaxRetries() {
+            try {
+                const res = await fetch('/admin/settings/chat-max-retries');
+                const { maxRetries } = await res.json();
+                document.getElementById('chatRetryInput').value = maxRetries;
+                document.querySelector('#currentChatRetryDisplay span').innerText = `${maxRetries} 次`;
+            } catch (err) {
+                console.error(err);
+                document.querySelector('#currentChatRetryDisplay span').innerText = `加载失败`;
+            }
+        }
+
+        // 設置聊天最大重試次數
+        window.setChatMaxRetries = async () => {
+            const newMaxRetries = parseInt(document.getElementById('chatRetryInput').value);
+            if (isNaN(newMaxRetries) || newMaxRetries <= 0) {
+                alert("重试次数必须是正整数！");
+                return;
+            }
+
+            try {
+                const res = await fetch('/admin/settings/chat-max-retries', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ maxRetries: newMaxRetries })
+                });
+                const result = await res.json();
+                if (result.success) {
+                    alert(`设置成功！新的重试次数为 ${result.maxRetries}。`);
+                    fetchChatMaxRetries();
                 } else {
                     alert(`错误: ${result.error}`);
                 }

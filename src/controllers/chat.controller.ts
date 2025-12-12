@@ -6,6 +6,7 @@ import { ProviderManagerService } from "../services/provider.manager";
 import { ChatCompletionRequest } from "../models/openai.types";
 import { logger } from "../utils/logger";
 import { buildModelAliasMaps} from "../utils/model-normalizer";
+import { config } from "../config";
 
 // 聊天控制器 (Chat Controller)
 // 處理與 OpenAI 兼容的接口：/v1/chat/completions 和 /v1/models
@@ -65,7 +66,7 @@ export const ChatController = new Elysia({ prefix: "/v1" })
     const payload = body as ChatCompletionRequest;
 
     // 智能重試邏輯
-    const maxRetries = 3;
+    const maxRetries = Math.max(1, Number(config.chatMaxRetries) || 3);
     const triedProviderIds = new Set<string>();
 
     let lastErrorResponse: Response | null = null;

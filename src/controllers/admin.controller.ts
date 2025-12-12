@@ -4,6 +4,7 @@ import { LogService } from "../services/log.service";
 import { AuthService } from "../services/auth.service"; // [NEW] 導入 AuthService
 import { logger } from "../utils/logger";
 import { RequestLogFilters, SyncLogFilters } from "../types";
+import { config } from "../config";
 
 // 管理員控制器 (Admin Controller)
 // 提供前端頁面所需的 API 接口
@@ -117,6 +118,25 @@ export const AdminController = new Elysia({ prefix: "/admin" })
   }, {
     body: t.Object({
       intervalHours: t.Numeric()
+    })
+  })
+  // [NEW] 獲取聊天重試次數
+  .get("/settings/chat-max-retries", () => {
+    return {
+      maxRetries: config.chatMaxRetries ?? 3
+    };
+  })
+  // [NEW] 設置聊天重試次數
+  .post("/settings/chat-max-retries", ({ body }) => {
+    const { maxRetries } = body as { maxRetries: number };
+    if (!Number.isFinite(maxRetries) || maxRetries <= 0) {
+      throw new Error("重試次數必須大於 0");
+    }
+    config.chatMaxRetries = Math.max(1, Math.floor(maxRetries));
+    return { success: true, maxRetries: config.chatMaxRetries };
+  }, {
+    body: t.Object({
+      maxRetries: t.Numeric()
     })
   })
   // [NEW] 生成新的密鑰

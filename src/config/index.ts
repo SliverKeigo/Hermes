@@ -19,5 +19,7 @@ export const config = {
   port: parseInt(getEnv("PORT", "3000")),
   hermesSecret: getEnv("HERMES_SECRET", "hermes-secret-key-123"),
   // 新增：Provider 定時同步間隔，默認 24 小時 (以小時為單位存儲)
-  periodicSyncIntervalHours: parseInt(getEnv("PERIODIC_SYNC_INTERVAL_HOURS", "24"), 10)
+  periodicSyncIntervalHours: parseInt(getEnv("PERIODIC_SYNC_INTERVAL_HOURS", "24"), 10),
+  // 聊天重試次數，默認 3
+  chatMaxRetries: parseInt(getEnv("CHAT_MAX_RETRIES", "3"), 10)
 };
