@@ -64,6 +64,24 @@ db.exec(`
     createdAt INTEGER,
     lastUsedAt INTEGER
   );
+
+  -- 指標持久化表
+  CREATE TABLE IF NOT EXISTS metrics_counters (
+    key TEXT PRIMARY KEY,
+    value INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS metrics_models (
+    model TEXT PRIMARY KEY,
+    count INTEGER
+  );
+
+  CREATE TABLE IF NOT EXISTS metrics_providers (
+    id TEXT PRIMARY KEY,
+    name TEXT,
+    count INTEGER,
+    errors INTEGER
+  );
 `);
 
 ensureProviderColumns();
