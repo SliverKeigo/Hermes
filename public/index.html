@@ -9,6 +9,43 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
         body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .action-bar { display: flex; gap: 12px; align-items: stretch; }
+        .action-btn {
+            min-width: 108px;
+            background: linear-gradient(145deg, #ffffff, #f5f7fb);
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 12px 14px;
+            color: #1f2937;
+            box-shadow: 0 6px 18px -10px rgba(31, 41, 55, 0.45), 0 1px 0 rgba(255,255,255,0.8) inset;
+            transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, background 180ms ease;
+        }
+        .action-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 30px -14px rgba(59, 130, 246, 0.7);
+            border-color: #cbd5ff;
+        }
+        .action-btn:active {
+            transform: translateY(0);
+            box-shadow: 0 4px 14px -10px rgba(59, 130, 246, 0.7);
+        }
+        .action-btn .icon {
+            font-size: 18px;
+            color: #4b5563;
+        }
+        .action-btn .text {
+            line-height: 1.1;
+            font-weight: 600;
+        }
+        .action-btn.primary {
+            background: linear-gradient(145deg, #e7f0ff, #dce9ff);
+            color: #1d4ed8;
+            border-color: #c3d5ff;
+        }
+        .action-btn.primary .icon { color: #1d4ed8; }
+        .action-btn.ghost {
+            background: linear-gradient(145deg, #ffffff, #f8fafc);
+        }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } 40% { transform: scale(1); } }
     </style>
@@ -23,24 +60,36 @@
                 </h1>
                 <p class="text-gray-600 mt-1">多模型聚合网关控制台</p>
             </div>
-            <div class="flex gap-4 items-center">
-                <div class="flex gap-2">
-                    <a href="/settings" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                        <i class="fa-solid fa-gear"></i> <span>设置</span>
-                    </a>
-                    <a href="/logs" target="_blank" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                        <i class="fa-solid fa-list-check"></i> <span>日志监控</span>
-                    </a>
-                    <a href="/metrics" target="_blank" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                        <i class="fa-solid fa-chart-column"></i> <span>指标</span>
-                    </a>
-                    <a href="/chat" target="_blank" class="bg-blue-50 border border-blue-200 hover:bg-blue-100 text-blue-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                        <i class="fa-solid fa-comments"></i> <span>测试 Chat</span>
-                    </a>
-                    <button onclick="fetchProviders()" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 px-4 py-2 rounded-md transition flex items-center gap-2">
-                        <i class="fa-solid fa-rotate-right"></i> <span>刷新列表</span>
-                    </button>
-                </div>
+            <div class="action-bar">
+                <a href="/settings" class="action-btn ghost text-center">
+                    <div class="icon mb-1"><i class="fa-solid fa-gear"></i></div>
+                    <div class="text text-sm">设置</div>
+                </a>
+                <a href="/logs" target="_blank" class="action-btn ghost text-center">
+                    <div class="icon mb-1"><i class="fa-solid fa-list-check"></i></div>
+                    <div class="text text-sm">日志监控</div>
+                </a>
+                <a href="/metrics" target="_blank" class="action-btn ghost text-center">
+                    <div class="icon mb-1"><i class="fa-solid fa-chart-column"></i></div>
+                    <div class="text text-sm">指标</div>
+                </a>
+                <a href="/chat" target="_blank" class="action-btn primary text-center">
+                    <div class="icon mb-1"><i class="fa-solid fa-comments"></i></div>
+                    <div class="text text-sm">测试 Chat</div>
+                </a>
+                <button onclick="exportConfig()" class="action-btn ghost text-center">
+                    <div class="icon mb-1"><i class="fa-solid fa-download"></i></div>
+                    <div class="text text-sm">导出配置</div>
+                </button>
+                <button onclick="openImportDialog()" class="action-btn ghost text-center">
+                    <div class="icon mb-1"><i class="fa-solid fa-upload"></i></div>
+                    <div class="text text-sm">导入配置</div>
+                </button>
+                <button onclick="fetchProviders()" class="action-btn ghost text-center">
+                    <div class="icon mb-1"><i class="fa-solid fa-rotate-right"></i></div>
+                    <div class="text text-sm">刷新列表</div>
+                </button>
+                <input id="importFile" type="file" accept="application/json,.json" class="hidden" onchange="handleImport(event)">
             </div>
         </header>
 
@@ -101,6 +150,88 @@
 
         function formatDate(ts) {
             return new Date(ts).toLocaleString();
+        }
+
+        async function exportConfig() {
+            try {
+                const res = await fetch(`${API_BASE}/providers/export`);
+                const data = await res.json();
+
+                if (!data?.providers || !Array.isArray(data.providers)) {
+                    alert('导出失败：无有效数据');
+                    return;
+                }
+
+                const filename = `hermes-providers-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+                const fileContent = {
+                    exportedAt: data.exportedAt || Date.now(),
+                    providers: data.providers
+                };
+                const blob = new Blob([JSON.stringify(fileContent, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                alert('导出失败：' + (err.message || err));
+            }
+        }
+
+        function openImportDialog() {
+            const input = document.getElementById('importFile');
+            if (input) input.click();
+        }
+
+        async function handleImport(event) {
+            const file = event.target.files?.[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const json = JSON.parse(text);
+                const providers = Array.isArray(json?.providers) ? json.providers : (Array.isArray(json) ? json : null);
+
+                if (!Array.isArray(providers)) {
+                    alert('导入失败：文件需包含 providers 数组');
+                    return;
+                }
+
+                const normalized = providers
+                    .map(p => ({
+                        name: p?.name?.trim(),
+                        baseUrl: p?.baseUrl?.trim(),
+                        apiKey: p?.apiKey?.trim()
+                    }))
+                    .filter(p => p.name && p.baseUrl && p.apiKey);
+
+                if (normalized.length === 0) {
+                    alert('导入失败：未找到合法的 name/baseUrl/apiKey');
+                    return;
+                }
+
+                const res = await fetch(`${API_BASE}/providers/import`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ providers: normalized })
+                });
+
+                const result = await res.json();
+                if (!result.success) {
+                    alert(`导入失败：${result.error || '未知错误'}`);
+                    return;
+                }
+
+                alert(`导入完成：新增 ${result.importedCount || 0} 个${result.skippedCount ? `，跳过 ${result.skippedCount} 个重复/无效` : ''}`);
+                fetchProviders();
+            } catch (err) {
+                alert('导入失败：' + (err.message || err));
+            } finally {
+                event.target.value = '';
+            }
         }
 
         // 渲染提供商列表
