@@ -177,12 +177,13 @@ export class ProviderManagerService {
         // 低 RPM 保護：5秒
         await new Promise(resolve => setTimeout(resolve, 5000));
 
-        const isWorking = await this.verifyModel(provider.baseUrl, provider.apiKey, model);
+        const probe = await this.verifyModel(provider.baseUrl, provider.apiKey, model);
+        const isWorking = probe.ok;
 
-                if (isWorking) {
-                  validModels.push(model);
-                  logger.info(`[檢測通過] ${model}`);
-                  // [實時更新]
+        if (isWorking) {
+          validModels.push(model);
+          logger.info(`[檢測通過] ${model}`);
+          // [實時更新]
                   this.updateProviderStatus(provider.id, 'syncing', validModels);
                   
                   // [NEW] 解除冷卻 (如果之前被標記為故障)
@@ -193,16 +194,20 @@ export class ProviderManagerService {
                     providerName: provider.name,
                     model: model,
                     result: 'success',
-                    message: 'Model is active and responding'
+                    message: probe.status ? `Model responded with ${probe.status}` : 'Model is active and responding'
                   });
-                } else {          logger.warn(`[檢測失敗] ${model}`);
+                } else {
+          const failureMsg = probe.status
+            ? `Verification failed (status=${probe.status}${probe.errorText ? ` body=${probe.errorText}` : ""})`
+            : `Verification failed (${probe.errorText || "unknown error"})`;
+          logger.warn(`[檢測失敗] ${model} ${failureMsg}`);
 
           LogService.logSync({
             providerId: provider.id,
             providerName: provider.name,
             model: model,
             result: 'failure',
-            message: 'Verification failed (401/404/500)'
+            message: failureMsg
           });
         }
       }
@@ -225,7 +230,7 @@ export class ProviderManagerService {
   }
 
   // 驗證模型 (Probe)
-  private static async verifyModel(baseUrl: string, apiKey: string, model: string): Promise<boolean> {
+  private static async verifyModel(baseUrl: string, apiKey: string, model: string): Promise<{ ok: boolean; status?: number; errorText?: string }> {
     const url = `${baseUrl}/chat/completions`;
     try {
       const response = await fetch(url, {
@@ -240,9 +245,13 @@ export class ProviderManagerService {
           max_tokens: 1
         })
       });
-      return response.ok;
-    } catch {
-      return false;
+      if (!response.ok) {
+        const text = await response.text();
+        return { ok: false, status: response.status, errorText: text };
+      }
+      return { ok: true, status: response.status };
+    } catch (error: any) {
+      return { ok: false, errorText: error?.message || "network_error" };
     }
   }
 
