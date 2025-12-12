@@ -4,6 +4,7 @@ import { logger } from "../utils/logger";
 import { DispatcherService } from "./dispatcher.service";
 import { LogService } from "./log.service";
 import { ProviderManagerService } from "./provider.manager";
+import { RoutingScoreService } from "./routing.score.service";
 
 // 代理服務 (Proxy Service)
 // 負責將請求轉發給上游提供商並處理響應
@@ -11,6 +12,7 @@ export class ProxyService {
   // 轉發請求 (Forward Request)
   static async forwardRequest(provider: AIProvider, payload: ChatCompletionRequest) {
     const url = `${provider.baseUrl}/chat/completions`;
+    const startTime = Date.now();
 
     logger.info(`正在轉發請求到: ${url}`);
     // 記錄模型/供應商使用
@@ -28,6 +30,8 @@ export class ProxyService {
       });
 
       if (!response.ok) {
+        const duration = Date.now() - startTime;
+        RoutingScoreService.update(provider.id, payload.model, false, duration);
         const errorText = await response.text();
         const contentType = response.headers.get("content-type") || "text/plain";
         logger.error(`來自 ${provider.name} 的上游錯誤: ${response.status} - ${errorText}`);
@@ -57,6 +61,8 @@ export class ProxyService {
 
       // 如果請求是流式 (Streaming)，直接返回響應體，讓 Elysia 處理 SSE
       if (payload.stream) {
+        const duration = Date.now() - startTime;
+        RoutingScoreService.update(provider.id, payload.model, true, duration);
         return new Response(response.body, {
           headers: {
             "Content-Type": "text/event-stream",
@@ -68,9 +74,13 @@ export class ProxyService {
 
       // 否則返回 JSON 數據
       const data = await response.json();
+      const duration = Date.now() - startTime;
+      RoutingScoreService.update(provider.id, payload.model, true, duration);
       return data;
 
     } catch (error: any) {
+      const duration = Date.now() - startTime;
+      RoutingScoreService.update(provider.id, payload.model, false, duration);
       logger.error("代理轉發失敗 (Proxy forwarding failed)", error);
       // 網絡級/其他異常也進行冷卻
       DispatcherService.penalize(provider.id, payload.model);

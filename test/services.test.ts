@@ -20,6 +20,7 @@ import { AuthService } from "../src/services/auth.service";
 import { ProviderManagerService } from "../src/services/provider.manager";
 import { DispatcherService } from "../src/services/dispatcher.service";
 import { config } from "../src/config";
+import { RoutingScoreService } from "../src/services/routing.score.service";
 
 config.hermesSecret = "test-secret";
 
@@ -151,6 +152,23 @@ describe("服務層測試 (Services Tests)", () => {
       ]).toContain(codex.resolvedModel);
 
       global.fetch = originalFetch;
+    });
+
+    it("應優先選擇得分更高的上游", async () => {
+      RoutingScoreService.resetForTest();
+      const model = "gpt-4";
+      const p1 = ProviderManagerService.addProvider("Fast", "http://fast", "sk-fast");
+      const p2 = ProviderManagerService.addProvider("Slow", "http://slow", "sk-slow");
+      db.exec(`UPDATE providers SET status = 'active', models = '${JSON.stringify([model])}' WHERE id = '${p1.id}'`);
+      db.exec(`UPDATE providers SET status = 'active', models = '${JSON.stringify([model])}' WHERE id = '${p2.id}'`);
+
+      RoutingScoreService.update(p1.id, model, true, 300);  // 快且成功
+      RoutingScoreService.update(p2.id, model, false, 2000); // 慢且失敗
+
+      const selected = await DispatcherService.getProviderForModel(model);
+      expect(selected).not.toBeNull();
+      if (!selected) throw new Error("expected selection");
+      expect(selected.provider.id).toBe(p1.id);
     });
   });
 

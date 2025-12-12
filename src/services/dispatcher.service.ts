@@ -3,6 +3,7 @@ import { ProviderManagerService } from "./provider.manager"; // [NEW] 引入管�
 import { logger } from "../utils/logger";
 import { LogService } from "./log.service";
 import { buildModelAliasMaps, normalizeModelName } from "../utils/model-normalizer";
+import { RoutingScoreService } from "./routing.score.service";
 
 // 分發服務 (Dispatcher Service)
 // "信使邏輯"：根據請求的模型選擇合適的上游提供商
@@ -134,8 +135,9 @@ export class DispatcherService {
       return null;
     }
 
-    // 3. 隨機打亂候選，避免固定順序導致的偏斜
-    for (const provider of this.shuffle(candidates)) {
+    const scored: { provider: AIProvider; resolvedModel: string; score: number }[] = [];
+
+    for (const provider of candidates) {
       const availableModels = variantList.filter(v => provider.models.includes(v));
       const resolvedModel = availableModels.length > 0
         ? availableModels[Math.floor(Math.random() * availableModels.length)]
@@ -147,11 +149,18 @@ export class DispatcherService {
         continue;
       }
 
-      logger.info(`[Dispatcher] 選擇上游: provider=${provider.id} (${provider.name}) model=${resolvedModel} (requested=${modelName})`);
-      return { provider, resolvedModel };
+      const score = RoutingScoreService.scoreFor(provider.id, resolvedModel);
+      scored.push({ provider, resolvedModel, score });
     }
 
-    logger.warn(`所有支持模型 ${modelName} 的上游均在冷卻中`);
-    return null;
+    if (scored.length === 0) {
+      logger.warn(`所有支持模型 ${modelName} 的上游均在冷卻中`);
+      return null;
+    }
+
+    scored.sort((a, b) => b.score - a.score);
+    const picked = scored[0];
+    logger.info(`[Dispatcher] 選擇上游: provider=${picked.provider.id} (${picked.provider.name}) model=${picked.resolvedModel} (requested=${modelName}) score=${picked.score.toFixed(3)}`);
+    return { provider: picked.provider, resolvedModel: picked.resolvedModel };
   }
 }
