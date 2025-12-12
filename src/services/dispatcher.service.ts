@@ -86,24 +86,24 @@ export class DispatcherService {
     return copy;
   }
 
-  // 根據模型名稱獲取提供商 (帶冷卻與自愈)
-  static async getProviderForModel(modelName: string): Promise<AIProvider | null> {
-    const allProviders = ProviderManagerService.getAll();
+  // 根據模型名稱獲取提供商 (Get Provider for Model)
+  static async getProviderForModel(modelName: string, excludedIds: string[] = []): Promise<AIProvider | null> {
+    // 1. 從數據庫中獲取所有活躍的提供商
+    const allProviders = await ProviderManagerService.getAll();
+
+    // 2. 查找支持該模型且狀態為 active 的提供商，並排除已嘗試過的
     const candidates = allProviders.filter(p =>
       p.status === 'active' &&
-      p.models.includes(modelName)
+      p.models.includes(modelName) &&
+      !excludedIds.includes(p.id)
     );
 
     if (candidates.length === 0) {
-      logger.warn(`未找到支持該模型的活躍提供商: ${modelName}`);
-      return null;
-    }
-
-    const shuffled = this.shuffle(candidates);
-    for (const provider of shuffled) {
-      if (await this.isAvailable(provider, modelName)) {
-        logger.info(`將模型 ${modelName} 分發給提供商: ${provider.name} (${provider.id})`);
-        return provider;
+      // 如果是因為排除完了導致沒有候選，可能需要記錄一下
+      if (excludedIds.length > 0) {
+        logger.warn(`所有支持模型 ${modelName} 的活躍提供商都已嘗試失敗`);
+      } else {
+        logger.warn(`未找到支持該模型的活躍提供商: ${modelName}`);
       }
     }
 
