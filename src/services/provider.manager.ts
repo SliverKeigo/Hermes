@@ -47,6 +47,45 @@ export class ProviderManagerService {
     return newProvider;
   }
 
+  // 批量導入提供商配置，避免重複 name+baseUrl 的組合
+  static importProviders(rawProviders: { name: string; baseUrl: string; apiKey: string }[]) {
+    if (!Array.isArray(rawProviders)) {
+      throw new Error("providers must be an array");
+    }
+
+    const existing = this.getAll();
+    const seenKeys = new Set(existing.map(p => `${p.name.toLowerCase()}::${p.baseUrl}`));
+
+    const imported: { id: string; name: string }[] = [];
+    const skipped: { name: string; baseUrl: string; reason: string }[] = [];
+
+    for (const raw of rawProviders) {
+      if (!raw?.name || !raw?.baseUrl || !raw?.apiKey) {
+        skipped.push({ name: raw?.name || "未知", baseUrl: raw?.baseUrl || "-", reason: "缺少必要字段" });
+        continue;
+      }
+
+      const normalizedBaseUrl = raw.baseUrl.replace(/\/$/, "");
+      const key = `${raw.name.toLowerCase()}::${normalizedBaseUrl}`;
+
+      if (seenKeys.has(key)) {
+        skipped.push({ name: raw.name, baseUrl: normalizedBaseUrl, reason: "已存在相同名稱+地址" });
+        continue;
+      }
+
+      const created = this.addProvider(raw.name, normalizedBaseUrl, raw.apiKey);
+      seenKeys.add(key);
+      imported.push({ id: created.id, name: created.name });
+    }
+
+    return {
+      imported,
+      skipped,
+      importedCount: imported.length,
+      skippedCount: skipped.length
+    };
+  }
+
   // 刪除提供商
   static removeProvider(id: string): boolean {
     // 使用 db.query() 和 .run()

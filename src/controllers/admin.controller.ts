@@ -14,6 +14,20 @@ export const AdminController = new Elysia({ prefix: "/admin" })
       data: ProviderManagerService.getAll()
     };
   })
+  // 導出提供商配置
+  .get("/providers/export", () => {
+    const exportedAt = Date.now();
+    const providers = ProviderManagerService.getAll().map(p => ({
+      name: p.name,
+      baseUrl: p.baseUrl,
+      apiKey: p.apiKey
+    }));
+
+    return {
+      exportedAt,
+      providers
+    };
+  })
   // [NEW] 獲取 API 請求日誌
   .get("/request-logs", ({ query }) => {
     // TypeBox 驗證後，query.limit 和 query.page 應為 number | undefined
@@ -156,6 +170,26 @@ export const AdminController = new Elysia({ prefix: "/admin" })
       name: t.String(),
       baseUrl: t.String(),
       apiKey: t.String()
+    })
+  })
+  // 批量導入提供商配置
+  .post("/providers/import", ({ body, set }) => {
+    try {
+      const { providers } = body as { providers: { name: string; baseUrl: string; apiKey: string }[] };
+      const result = ProviderManagerService.importProviders(providers);
+      return { success: true, ...result };
+    } catch (error: any) {
+      logger.error("導入提供商配置失敗", error);
+      set.status = 500;
+      return { success: false, error: error.message };
+    }
+  }, {
+    body: t.Object({
+      providers: t.Array(t.Object({
+        name: t.String(),
+        baseUrl: t.String(),
+        apiKey: t.String()
+      }))
     })
   })
   // 更新提供商
