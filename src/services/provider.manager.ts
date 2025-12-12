@@ -224,10 +224,10 @@ export class ProviderManagerService {
           logger.info(`[檢測通過] ${model}`);
           // [實時更新]
                   this.updateProviderStatus(provider.id, 'syncing', validModels);
-                  
+
                   // [NEW] 解除冷卻 (如果之前被標記為故障)
                   DispatcherService.clearCooldown(provider.id, model);
-        
+
                   LogService.logSync({
                     providerId: provider.id,
                     providerName: provider.name,
@@ -271,6 +271,7 @@ export class ProviderManagerService {
   // 驗證模型 (Probe)
   private static async verifyModel(baseUrl: string, apiKey: string, model: string): Promise<{ ok: boolean; status?: number; errorText?: string }> {
     const url = `${baseUrl}/chat/completions`;
+    const probeMessage = "healthcheck for connectivity, respond with ok"; // 避免敏感詞的探活提示
     try {
       const response = await fetch(url, {
         method: "POST",
@@ -280,7 +281,7 @@ export class ProviderManagerService {
         },
         body: JSON.stringify({
           model: model,
-          messages: [{ role: "user", content: "Hi" }],
+          messages: [{ role: "system", content: probeMessage }],
           max_tokens: 1
         })
       });
