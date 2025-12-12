@@ -12,7 +12,10 @@ type Cooldown = { until: number; backoffMs: number; force?: boolean };
 export class DispatcherService {
   private static readonly INITIAL_PENALTY_MS = 30 * 60_000; // 30 分鐘
   private static readonly MAX_PENALTY_MS = 4 * 60 * 60_000; // 最長 4 小時
+  private static readonly RESYNC_THRESHOLD = 3; // 觸發重同步的累計懲罰次數
+  private static readonly RESYNC_COOLDOWN_MS = 10 * 60_000; // 重同步觸發間隔，避免頻繁
   private static cooldowns = new Map<string, Cooldown>(); // key: providerId:model
+  private static penaltyCounts = new Map<string, { count: number; lastResync?: number }>();
 
   private static key(providerId: string, modelName: string) {
     return `${providerId}:${modelName}`;
@@ -41,6 +44,24 @@ export class DispatcherService {
       ? Math.min(existing.backoffMs * 2, this.MAX_PENALTY_MS)
       : Math.max(durationMs, this.INITIAL_PENALTY_MS);
     this.setCooldown(providerId, modelName, backoff, force);
+
+    // 累計同一 provider/model 的懲罰次數，用於觸發重新同步模型列表
+    const penalty = this.penaltyCounts.get(key) ?? { count: 0, lastResync: undefined };
+    penalty.count += 1;
+    const now = Date.now();
+    const shouldResync = penalty.count >= this.RESYNC_THRESHOLD &&
+      (!penalty.lastResync || (now - penalty.lastResync) > this.RESYNC_COOLDOWN_MS);
+    if (shouldResync) {
+      try {
+        ProviderManagerService.triggerResync(providerId);
+        penalty.count = 0;
+        penalty.lastResync = now;
+        logger.warn(`[Dispatcher] 懲罰達閾值，觸發重新同步模型列表: provider=${providerId} model=${modelName}`);
+      } catch (error) {
+        logger.error(`[Dispatcher] 觸發重新同步失敗: provider=${providerId}`, error);
+      }
+    }
+    this.penaltyCounts.set(key, penalty);
   }
 
   private static async probeModel(provider: AIProvider, modelName: string): Promise<boolean> {
