@@ -1,5 +1,5 @@
 const PREFIX_REGEX = /^(models|model|m)\//i;
-const SEPARATOR_REGEX = /[-_\s]+/;
+const SEPARATOR_REGEX = /[-_\s:]+/;
 const VARIANT_TOKENS = new Set([
   "latest",
   "default",
@@ -22,6 +22,10 @@ const VARIANT_TOKENS = new Set([
   "online",
   "beta",
   "preview",
+  "docs",
+  "free",
+  "max",
+  "xhigh",
 ]);
 
 export type VersionParts = number[];

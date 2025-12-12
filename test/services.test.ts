@@ -73,7 +73,18 @@ describe("服務層測試 (Services Tests)", () => {
         "openai/gpt-5",
         "qwen/qwen3-235b-a22b",
         "qwen/qwen3-235b-a22b-instruct-2507",
-        "qwen/qwen3-235b-a22b-thinking-2507"
+        "qwen/qwen3-235b-a22b-thinking-2507",
+        "claude-4.5-sonnet-docs",
+        "claude-4.5-sonnet",
+        "gemma-3-27b-it",
+        "gemma-3-27b-it:free",
+        "gemma-3-4b-it",
+        "gemma-3-4b-it:free",
+        "glm-4.5-air",
+        "glm-4.5-air:free",
+        "gpt-5.1-codex",
+        "gpt-5.1-codex-max",
+        "gpt-5.1-codex-max-xhigh"
       ])}' WHERE id = '${provider.id}'`);
 
       const selected = await DispatcherService.getProviderForModel("gemini-flash");
@@ -106,6 +117,38 @@ describe("服務層測試 (Services Tests)", () => {
         "qwen/qwen3-235b-a22b-instruct-2507",
         "qwen/qwen3-235b-a22b-thinking-2507"
       ]).toContain(qwen.resolvedModel);
+
+      // claude docs 變體
+      const claude = await DispatcherService.getProviderForModel("claude-4.5-sonnet");
+      expect(claude).not.toBeNull();
+      if (!claude) throw new Error("expected selection");
+      expect(claude.provider.id).toBe(provider.id);
+      expect(["claude-4.5-sonnet", "claude-4.5-sonnet-docs"]).toContain(claude.resolvedModel);
+
+      // gemma free 變體
+      const gemma = await DispatcherService.getProviderForModel("gemma-3-27b-it");
+      expect(gemma).not.toBeNull();
+      if (!gemma) throw new Error("expected selection");
+      expect(gemma.provider.id).toBe(provider.id);
+      expect(["gemma-3-27b-it", "gemma-3-27b-it:free"]).toContain(gemma.resolvedModel);
+
+      // glm free 變體
+      const glm = await DispatcherService.getProviderForModel("glm-4.5-air");
+      expect(glm).not.toBeNull();
+      if (!glm) throw new Error("expected selection");
+      expect(glm.provider.id).toBe(provider.id);
+      expect(["glm-4.5-air", "glm-4.5-air:free"]).toContain(glm.resolvedModel);
+
+      // gpt codex max/xhigh 變體
+      const codex = await DispatcherService.getProviderForModel("gpt-5.1-codex");
+      expect(codex).not.toBeNull();
+      if (!codex) throw new Error("expected selection");
+      expect(codex.provider.id).toBe(provider.id);
+      expect([
+        "gpt-5.1-codex",
+        "gpt-5.1-codex-max",
+        "gpt-5.1-codex-max-xhigh"
+      ]).toContain(codex.resolvedModel);
 
       global.fetch = originalFetch;
     });
