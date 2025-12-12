@@ -76,10 +76,20 @@ export class LogService {
     duration: number;
     ip?: string;
   }) {
-    db.exec(`
+    const stmt = db.query(`
       INSERT INTO request_logs (id, method, path, model, status, duration, ip, createdAt)
-      VALUES ('${crypto.randomUUID()}', '${data.method}', '${data.path}', ${data.model ? "'" + data.model + "'" : "NULL"}, ${data.status}, ${data.duration}, ${data.ip ? "'" + data.ip + "'" : "NULL"}, ${Date.now()})
+      VALUES ($id, $method, $path, $model, $status, $duration, $ip, $createdAt)
     `);
+    stmt.run({
+      $id: crypto.randomUUID(),
+      $method: data.method,
+      $path: data.path,
+      $model: data.model ?? null,
+      $status: data.status,
+      $duration: data.duration,
+      $ip: data.ip ?? null,
+      $createdAt: Date.now()
+    });
   }
 
   // 記錄同步日誌 (Sync Logs)
@@ -90,10 +100,19 @@ export class LogService {
     result: 'success' | 'failure';
     message?: string;
   }) {
-    db.exec(`
+    const stmt = db.query(`
       INSERT INTO sync_logs (id, providerId, providerName, model, result, message, createdAt)
-      VALUES ('${crypto.randomUUID()}', '${data.providerId}', '${data.providerName}', '${data.model}', '${data.result}', '${data.message || ''}', ${Date.now()})
+      VALUES ($id, $providerId, $providerName, $model, $result, $message, $createdAt)
     `);
+    stmt.run({
+      $id: crypto.randomUUID(),
+      $providerId: data.providerId,
+      $providerName: data.providerName,
+      $model: data.model,
+      $result: data.result,
+      $message: data.message ?? "",
+      $createdAt: Date.now()
+    });
   }
 
   // 獲取最近的請求日誌 (支持分頁和過濾)
