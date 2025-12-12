@@ -152,7 +152,17 @@ export const ChatController = new Elysia({ prefix: "/v1" })
       model: t.String(),
       messages: t.Array(t.Object({
         role: t.String(),
-        content: t.String()
+        content: t.Union([
+          t.String(),
+          t.Array(t.Object({
+            type: t.String(),
+            text: t.Optional(t.String()),
+            image_url: t.Optional(t.Object({
+              url: t.String(),
+              detail: t.Optional(t.String())
+            }))
+          }))
+        ])
       })),
       stream: t.Optional(t.Boolean()),
       temperature: t.Optional(t.Number()),
