@@ -3,10 +3,9 @@ import { AuthService } from "../services/auth.service";
 import { DispatcherService } from "../services/dispatcher.service";
 import { ProxyService } from "../services/proxy.service";
 import { ProviderManagerService } from "../services/provider.manager";
-import { LogService } from "../services/log.service";
 import { ChatCompletionRequest } from "../models/openai.types";
 import { logger } from "../utils/logger";
-import { buildModelAliasMaps, normalizeModelName } from "../utils/model-normalizer";
+import { buildModelAliasMaps} from "../utils/model-normalizer";
 
 // 聊天控制器 (Chat Controller)
 // 處理與 OpenAI 兼容的接口：/v1/chat/completions 和 /v1/models
@@ -111,14 +110,7 @@ export const ChatController = new Elysia({ prefix: "/v1" })
                 return response;
             }
 
-            // 失敗：檢查狀態碼
-            // 400-499 通常是客戶端錯誤 (如參數錯誤)，不應該重試，除非是 429 (Rate Limit)
-            // 500-599 是服務端錯誤，應該重試
-            if (response.status !== 429 && response.status >= 400 && response.status < 500) {
-                return response; // 直接返回客戶端錯誤，不重試
-            }
-
-            // 記錄錯誤響應，準備重試
+            // 非 2xx 響應：記錄並嘗試切換其他上游（包括 4xx，因為可能是單個上游配置問題）
             logger.warn(`Provider ${provider.name} 返回錯誤 ${response.status}，準備重試...`);
             lastErrorResponse = response;
             continue;
