@@ -110,6 +110,22 @@
             modelSelect.disabled = true;
         }
 
+        // 自動調整輸入框高度
+              userInput.addEventListener('input', function() {
+                  this.style.height = 'auto';
+                  this.style.height = (this.scrollHeight) + 'px';
+              });
+
+              // 處理鍵盤發送
+              userInput.addEventListener('keydown', (e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      sendMessage();
+                  }
+              });
+
+              sendBtn.addEventListener('click', sendMessage);
+
         async function loadModels() {
             const key = apiKeyInput.value.trim();
             if (!key) {
@@ -145,7 +161,152 @@
                 alert(`加载模型失败：${err.message}`);
             }
         }
+        // 渲染消息氣泡
+                function appendMessage(role, content, id = null) {
+                    const isUser = role === 'user';
+                    const div = document.createElement('div');
+                    div.className = `flex gap-4 max-w-3xl mx-auto ${isUser ? 'flex-row-reverse' : ''}`;
+                    if (id) div.id = id;
 
+                    const avatar = isUser
+                        ? `<div class="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user text-gray-500 text-sm"></i></div>`
+                        : `<div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-robot text-blue-600 text-sm"></i></div>`;
+
+                    const bubble = isUser
+                        ? `<div class="bg-blue-600 text-white p-3 rounded-2xl rounded-tr-none shadow-sm whitespace-pre-wrap">${escapeHtml(content)}</div>`
+                        : `<div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 w-full message-content prose prose-sm max-w-none">${marked.parse(content)}</div>`;
+
+                    div.innerHTML = isUser ? bubble + avatar : avatar + bubble;
+                    chatContainer.appendChild(div);
+                    scrollToBottom();
+                    return div;
+                }
+
+                // 創建加載中氣泡
+                function appendLoading(id) {
+                    const div = document.createElement('div');
+                    div.id = id;
+                    div.className = `flex gap-4 max-w-3xl mx-auto`;
+                    div.innerHTML = `
+                        <div class="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-robot text-blue-600 text-sm"></i></div>
+                        <div class="bg-white p-4 rounded-lg shadow-sm border border-gray-100 flex items-center gap-1">
+                            <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                            <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                            <div class="w-2 h-2 bg-gray-400 rounded-full typing-dot"></div>
+                        </div>
+                    `;
+                    chatContainer.appendChild(div);
+                    scrollToBottom();
+                }
+
+                function updateMessageContent(id, content) {
+                    const div = document.getElementById(id);
+                    if (div) {
+                        const contentDiv = div.querySelector('.message-content') || div.querySelector('.shadow-sm');
+                        if (contentDiv) {
+                            contentDiv.innerHTML = marked.parse(content);
+                            contentDiv.className = "bg-white p-4 rounded-lg shadow-sm border border-gray-100 w-full message-content prose prose-sm max-w-none";
+                        }
+                    }
+                    scrollToBottom();
+                }
+
+                function scrollToBottom() {
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+
+                function escapeHtml(text) {
+                    const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
+                    return text.replace(/[&<>"]/g, function(m) { return map[m]; });
+                }
+
+                // 發送消息核心邏輯
+                async function sendMessage() {
+                    const text = userInput.value.trim();
+                    if (!text) return;
+
+                    const apiKey = document.getElementById('apiKey').value;
+                    const model = document.getElementById('modelSelect').value;
+                    const isStream = document.getElementById('streamToggle').checked;
+                    const temp = parseFloat(document.getElementById('tempRange').value);
+
+                    if (!model) { alert(window.i18n.t('chat.select_model_alert')); return; }
+
+                    userInput.value = '';
+                    userInput.style.height = 'auto';
+                    userInput.disabled = true;
+                    sendBtn.disabled = true;
+                    appendMessage('user', text);
+
+                    const aiMsgId = 'msg-' + Date.now();
+                    appendLoading(aiMsgId);
+
+                    let fullContent = '';
+
+                    try {
+                        const response = await fetch('/v1/chat/completions', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${apiKey}`
+                            },
+                            body: JSON.stringify({
+                                model: model,
+                                messages: [{ role: "user", content: text }],
+                                stream: isStream,
+                                temperature: temp
+                            })
+                        });
+
+                        if (!response.ok) {
+                            const err = await response.json();
+                            throw new Error(err.error?.message || window.i18n.t('common.error'));
+                        }
+
+                        if (isStream) {
+                            const reader = response.body.getReader();
+                            const decoder = new TextDecoder();
+
+                            while (true) {
+                                const { done, value } = await reader.read();
+                                if (done) break;
+
+                                const chunk = decoder.decode(value, { stream: true });
+                                const lines = chunk.split('\n');
+
+                                for (const line of lines) {
+                                    if (line.startsWith('data: ')) {
+                                        const dataStr = line.slice(6);
+                                        if (dataStr === '[DONE]') break;
+                                        try {
+                                            const data = JSON.parse(dataStr);
+                                            const delta = data.choices[0].delta.content || '';
+                                            fullContent += delta;
+                                            updateMessageContent(aiMsgId, fullContent);
+                                        } catch (e) {}
+                                    }
+                                }
+                            }
+                        } else {
+                            const data = await response.json();
+                            fullContent = data.choices[0].message.content;
+                            updateMessageContent(aiMsgId, fullContent);
+                        }
+
+                    } catch (error) {
+                        const div = document.getElementById(aiMsgId);
+                        div.innerHTML = `
+                            <div class="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-exclamation text-red-600 text-sm"></i></div>
+                            <div class="bg-red-50 p-3 rounded-lg text-red-700 text-sm border border-red-100">
+                                <strong>${window.i18n.t('common.error')}:</strong> ${error.message}
+                            </div>
+                        `;
+                    } finally {
+                        userInput.disabled = false;
+                        sendBtn.disabled = false;
+                        userInput.focus();
+                    }
+                }
         // 初始化
         loadModels();
     </script>

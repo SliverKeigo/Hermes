@@ -165,12 +165,17 @@
                     generatedKeySpan.innerText = result.key;
                     document.getElementById('generatedKeyDisplay').classList.remove('hidden');
 
-                    // 自动复制到剪贴板
-                    navigator.clipboard.writeText(result.key).then(() => {
-                        console.log('Key copied to clipboard');
-                    }).catch(err => {
-                        console.error('Failed to copy key to clipboard', err);
-                    });
+                    // 自动复制到剪贴板 (帶回退方案)
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        navigator.clipboard.writeText(result.key).then(() => {
+                            console.log('Key copied to clipboard via API');
+                        }).catch(err => {
+                            console.error('Failed to copy key via API', err);
+                            fallbackCopyTextToClipboard(result.key);
+                        });
+                    } else {
+                        fallbackCopyTextToClipboard(result.key);
+                    }
 
                     // 清空输入框
                     document.getElementById('newKeyDescription').value = '';
@@ -187,6 +192,31 @@
                 console.log(`[FE Debug] generateNewKey finished at ${new Date().toISOString()}`); // Debug log
             }
         };
+
+        // 回退複製函數
+        function fallbackCopyTextToClipboard(text) {
+            var textArea = document.createElement("textarea");
+            textArea.value = text;
+            
+            // 避免滾動到底部
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                var successful = document.execCommand('copy');
+                var msg = successful ? 'successful' : 'unsuccessful';
+                console.log('Fallback copying text command was ' + msg);
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+
+            document.body.removeChild(textArea);
+        }
 
         // 搜索密鑰
         window.searchKeys = () => {
