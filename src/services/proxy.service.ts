@@ -42,16 +42,25 @@ export class ProxyService {
         })();
         const errorCode = parsedError?.error?.code || parsedError?.code;
         const errorType = parsedError?.error?.type || parsedError?.type;
+        const errorMessage = parsedError?.error?.message || parsedError?.message || "";
         const isModelMissing =
           errorCode === "model_not_found" ||
           errorType === "model_not_found" ||
           (typeof parsedError?.error?.message === "string" && parsedError.error.message.includes("model_not_found"));
+        const isQuotaExhausted =
+          errorCode === "out_of_credits" ||
+          errorType === "out_of_credits" ||
+          (typeof errorMessage === "string" && errorMessage.toLowerCase().includes("out of words")) ||
+          (typeof errorMessage === "string" && errorMessage.toLowerCase().includes("out of credits")) ||
+          response.status === 402 ||
+          response.status === 422 && typeof errorMessage === "string" && errorMessage.toLowerCase().includes("out of");
+
         if (isModelMissing || response.status === 404) {
           ProviderManagerService.handleModelNotFound(provider.id, payload.model);
         }
 
         // 將該 provider+model 置入冷卻期，避免短時間內繼續命中
-        DispatcherService.penalize(provider.id, payload.model);
+        DispatcherService.penalize(provider.id, payload.model, undefined, isQuotaExhausted);
         LogService.trackUpstreamError(provider.id, provider.name, payload.model);
         return new Response(errorText, {
           status: response.status,

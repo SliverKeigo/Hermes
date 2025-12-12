@@ -7,18 +7,20 @@ import { RoutingScoreService } from "./routing.score.service";
 
 // 分發服務 (Dispatcher Service)
 // "信使邏輯"：根據請求的模型選擇合適的上游提供商
+type Cooldown = { until: number; backoffMs: number; force?: boolean };
+
 export class DispatcherService {
   private static readonly INITIAL_PENALTY_MS = 30 * 60_000; // 30 分鐘
   private static readonly MAX_PENALTY_MS = 4 * 60 * 60_000; // 最長 4 小時
-  private static cooldowns = new Map<string, { until: number; backoffMs: number }>(); // key: providerId:model
+  private static cooldowns = new Map<string, Cooldown>(); // key: providerId:model
 
   private static key(providerId: string, modelName: string) {
     return `${providerId}:${modelName}`;
   }
 
-  private static setCooldown(providerId: string, modelName: string, backoffMs: number) {
+  private static setCooldown(providerId: string, modelName: string, backoffMs: number, force = false) {
     const until = Date.now() + backoffMs;
-    this.cooldowns.set(this.key(providerId, modelName), { until, backoffMs });
+    this.cooldowns.set(this.key(providerId, modelName), { until, backoffMs, force });
     LogService.trackCooldown(providerId, ProviderManagerService.getAll().find(p => p.id === providerId)?.name || providerId, modelName);
     logger.warn(`[Dispatcher] 暫停上游: provider=${providerId} model=${modelName} 直到 ${new Date(until).toISOString()} (backoff=${backoffMs}ms)`);
   }
@@ -32,13 +34,13 @@ export class DispatcherService {
     }
   }
 
-  static penalize(providerId: string, modelName: string, durationMs = this.INITIAL_PENALTY_MS) {
+  static penalize(providerId: string, modelName: string, durationMs = this.INITIAL_PENALTY_MS, force = false) {
     const key = this.key(providerId, modelName);
     const existing = this.cooldowns.get(key);
     const backoff = existing
       ? Math.min(existing.backoffMs * 2, this.MAX_PENALTY_MS)
       : Math.max(durationMs, this.INITIAL_PENALTY_MS);
-    this.setCooldown(providerId, modelName, backoff);
+    this.setCooldown(providerId, modelName, backoff, force);
   }
 
   private static async probeModel(provider: AIProvider, modelName: string): Promise<boolean> {
@@ -72,7 +74,7 @@ export class DispatcherService {
 
     // [NEW] 信任機制：如果後台剛剛同步成功 (例如 5 分鐘內)，則無條件信任
     const RECENT_SYNC_THRESHOLD = 5 * 60 * 1000;
-    if (provider.lastSyncedAt && (Date.now() - provider.lastSyncedAt < RECENT_SYNC_THRESHOLD)) {
+    if (!entry?.force && provider.lastSyncedAt && (Date.now() - provider.lastSyncedAt < RECENT_SYNC_THRESHOLD)) {
       if (entry) {
         this.cooldowns.delete(key);
         logger.info(`[Dispatcher] 信任後台同步結果，強制解除冷卻: provider=${provider.id}`);
