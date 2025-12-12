@@ -2,6 +2,7 @@ import { AIProvider } from "../config/providers";
 import { ProviderManagerService } from "./provider.manager"; // [NEW] 引入管理器
 import { logger } from "../utils/logger";
 import { LogService } from "./log.service";
+import { buildModelAliasMaps, normalizeModelName } from "../utils/model-normalizer";
 
 // 分發服務 (Dispatcher Service)
 // "信使邏輯"：根據請求的模型選擇合適的上游提供商
@@ -107,15 +108,21 @@ export class DispatcherService {
   }
 
   // 根據模型名稱獲取提供商 (Get Provider for Model)
-  static async getProviderForModel(modelName: string, excludedIds: string[] = []): Promise<AIProvider | null> {
+  static async getProviderForModel(modelName: string, excludedIds: string[] = []): Promise<{ provider: AIProvider; resolvedModel: string } | null> {
     // 1. 從數據庫中獲取所有活躍的提供商
     const allProviders = ProviderManagerService.getAll();
     logger.info(`[Dispatcher] providers 模型列表: ${JSON.stringify(allProviders.map(p => ({ id: p.id, name: p.name, models: p.models })))} `);
 
+    const aliasMaps = buildModelAliasMaps(allProviders);
+    const normalizedInput = normalizeModelName(modelName).canonical || modelName;
+    const canonical = aliasMaps.variantToCanonical.get(normalizedInput) || normalizedInput;
+    const variants = aliasMaps.canonicalToVariants.get(canonical) ?? new Set([modelName]);
+    const variantList = Array.from(variants);
+
     // 2. 過濾出支持該模型且狀態為 active 或 syncing 的提供商
     const candidates = allProviders.filter(p =>
       (p.status === 'active' || p.status === 'syncing') &&
-      p.models.includes(modelName) &&
+      variantList.some(v => p.models.includes(v)) &&
       !excludedIds.includes(p.id)
     );
 
@@ -129,14 +136,19 @@ export class DispatcherService {
 
     // 3. 隨機打亂候選，避免固定順序導致的偏斜
     for (const provider of this.shuffle(candidates)) {
-      const available = await this.isAvailable(provider, modelName);
+      const availableModels = variantList.filter(v => provider.models.includes(v));
+      const resolvedModel = availableModels.length > 0
+        ? availableModels[Math.floor(Math.random() * availableModels.length)]
+        : modelName;
+
+      const available = await this.isAvailable(provider, resolvedModel);
       if (!available) {
         logger.info(`[Dispatcher] provider=${provider.id} (${provider.name}) 冷卻中，跳過`);
         continue;
       }
 
-      logger.info(`[Dispatcher] 選擇上游: provider=${provider.id} (${provider.name}) model=${modelName}`);
-      return provider;
+      logger.info(`[Dispatcher] 選擇上游: provider=${provider.id} (${provider.name}) model=${resolvedModel} (requested=${modelName})`);
+      return { provider, resolvedModel };
     }
 
     logger.warn(`所有支持模型 ${modelName} 的上游均在冷卻中`);

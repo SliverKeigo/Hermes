@@ -6,15 +6,16 @@ import { ProviderManagerService } from "../services/provider.manager";
 import { LogService } from "../services/log.service";
 import { ChatCompletionRequest } from "../models/openai.types";
 import { logger } from "../utils/logger";
+import { buildModelAliasMaps, normalizeModelName } from "../utils/model-normalizer";
 
 // 聊天控制器 (Chat Controller)
 // 處理與 OpenAI 兼容的接口：/v1/chat/completions 和 /v1/models
 export const ChatController = new Elysia({ prefix: "/v1" })
-  
+
   // 1. 獲取模型列表接口 (Get Models)
   .get("/models", async ({ request, set }) => {
     const authHeader = request.headers.get("authorization");
-    
+
     // 驗證 Hermes Key
     if (!AuthService.validateKey(authHeader || undefined)) {
       set.status = 401;
@@ -30,10 +31,9 @@ export const ChatController = new Elysia({ prefix: "/v1" })
     // [Async] 從所有提供商中聚合模型
     const providers = await ProviderManagerService.getAll();
     const uniqueModels = new Set<string>();
-    
-    providers.forEach(p => {
-      p.models.forEach(model => uniqueModels.add(model));
-    });
+
+    const aliasMaps = buildModelAliasMaps(providers);
+    aliasMaps.canonicalToVariants.forEach((_, canonical) => uniqueModels.add(canonical));
 
     // 返回 OpenAI 標準格式的模型列表
     return {
@@ -50,7 +50,7 @@ export const ChatController = new Elysia({ prefix: "/v1" })
   // 2. 聊天對話接口 (Chat Completions)
   .post("/chat/completions", async ({ request, body, set }) => {
     const authHeader = request.headers.get("authorization");
-    
+
     // 認證 (Authentication)
     if (!AuthService.validateKey(authHeader || undefined)) {
       set.status = 401;
@@ -64,19 +64,19 @@ export const ChatController = new Elysia({ prefix: "/v1" })
     }
 
     const payload = body as ChatCompletionRequest;
-    
+
     // 智能重試邏輯
     const maxRetries = 3;
     const triedProviderIds = new Set<string>();
-    
+
     let lastErrorResponse: Response | null = null;
     let lastError: any = null;
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       // 1. 獲取 Provider，並排除已嘗試過的
-      const provider = await DispatcherService.getProviderForModel(payload.model, Array.from(triedProviderIds));
-      
-      if (!provider) {
+      const selection = await DispatcherService.getProviderForModel(payload.model, Array.from(triedProviderIds));
+
+      if (!selection) {
         // 如果第一次嘗試就沒找到，或者所有可用節點都試過了
         if (attempt === 1) {
             set.status = 404;
@@ -90,23 +90,27 @@ export const ChatController = new Elysia({ prefix: "/v1" })
         }
         // 如果是重試過程中耗盡了所有節點
         logger.warn(`模型 ${payload.model} 重試耗盡，無更多可用節點`);
-        break; 
+        break;
       }
 
       // 記錄此節點已嘗試
-      triedProviderIds.add(provider.id);
+      triedProviderIds.add(selection.provider.id);
+      const provider = selection.provider;
 
       try {
         // 2. 轉發請求
-        const response = await ProxyService.forwardRequest(provider, payload);
-        
+        const response = await ProxyService.forwardRequest(provider, {
+          ...payload,
+          model: selection.resolvedModel
+        });
+
         // 3. 檢查響應
         if (response instanceof Response) {
             if (response.ok) {
                 // 成功：直接返回
                 return response;
             }
-            
+
             // 失敗：檢查狀態碼
             // 400-499 通常是客戶端錯誤 (如參數錯誤)，不應該重試，除非是 429 (Rate Limit)
             // 500-599 是服務端錯誤，應該重試

@@ -45,7 +45,8 @@ describe("服務層測試 (Services Tests)", () => {
       // Test dispatch
       const selected = await DispatcherService.getProviderForModel("gpt-4");
       expect(selected).not.toBeNull();
-      expect(selected?.id).toBe(provider.id);
+      expect(selected?.provider.id).toBe(provider.id);
+      expect(selected?.resolvedModel).toBe("gpt-4");
 
       global.fetch = originalFetch;
     });
@@ -53,6 +54,23 @@ describe("服務層測試 (Services Tests)", () => {
     it("找不到模型時應返回 null", async () => {
       const selected = await DispatcherService.getProviderForModel("non-existent-model");
       expect(selected).toBeNull();
+    });
+
+    it("應將模型別名/變體聚合並仍可分發", async () => {
+      // Mock fetch to avoid real network requests
+      const originalFetch = global.fetch;
+      global.fetch = mock(() => new Response(JSON.stringify({ data: [] }))) as any;
+      
+      const provider = ProviderManagerService.addProvider("AliasMock", "http://alias-mock", "sk-mock");
+      db.exec(`UPDATE providers SET status = 'active', models = '${JSON.stringify(["models/gemini-flash-latest", "gemini-2.5-flash"])}' WHERE id = '${provider.id}'`);
+
+      const selected = await DispatcherService.getProviderForModel("gemini-flash");
+      expect(selected).not.toBeNull();
+      if (!selected) throw new Error("expected selection");
+      expect(selected.provider.id).toBe(provider.id);
+      expect(["models/gemini-flash-latest", "gemini-2.5-flash"]).toContain(selected.resolvedModel);
+
+      global.fetch = originalFetch;
     });
   });
 
