@@ -60,15 +60,52 @@ describe("服務層測試 (Services Tests)", () => {
       // Mock fetch to avoid real network requests
       const originalFetch = global.fetch;
       global.fetch = mock(() => new Response(JSON.stringify({ data: [] }))) as any;
+      // 禁用背景同步以避免覆蓋測試模型列表
+      (ProviderManagerService as any).backgroundSyncTask = async () => {};
       
       const provider = ProviderManagerService.addProvider("AliasMock", "http://alias-mock", "sk-mock");
-      db.exec(`UPDATE providers SET status = 'active', models = '${JSON.stringify(["models/gemini-flash-latest", "gemini-2.5-flash"])}' WHERE id = '${provider.id}'`);
+      db.exec(`UPDATE providers SET status = 'active', models = '${JSON.stringify([
+        "models/gemini-flash-latest",
+        "gemini-2.5-flash",
+        "meta/llama-4-scout",
+        "meta/llama-4-scout-17b-16e-instruct",
+        "openai/gpt-4o",
+        "openai/gpt-5",
+        "qwen/qwen3-235b-a22b",
+        "qwen/qwen3-235b-a22b-instruct-2507",
+        "qwen/qwen3-235b-a22b-thinking-2507"
+      ])}' WHERE id = '${provider.id}'`);
 
       const selected = await DispatcherService.getProviderForModel("gemini-flash");
       expect(selected).not.toBeNull();
       if (!selected) throw new Error("expected selection");
       expect(selected.provider.id).toBe(provider.id);
       expect(["models/gemini-flash-latest", "gemini-2.5-flash"]).toContain(selected.resolvedModel);
+
+      // meta/llama-4-scout family
+      const llama = await DispatcherService.getProviderForModel("meta/llama-4-scout");
+      expect(llama).not.toBeNull();
+      if (!llama) throw new Error("expected selection");
+      expect(llama.provider.id).toBe(provider.id);
+      expect(["meta/llama-4-scout", "meta/llama-4-scout-17b-16e-instruct"]).toContain(llama.resolvedModel);
+
+      // openai/gpt-5 family
+      const gpt5 = await DispatcherService.getProviderForModel("openai/gpt-5");
+      expect(gpt5).not.toBeNull();
+      if (!gpt5) throw new Error("expected selection");
+      expect(gpt5.provider.id).toBe(provider.id);
+      expect(["openai/gpt-4o", "openai/gpt-5"]).toContain(gpt5.resolvedModel);
+
+      // qwen 變體帶日期/後綴
+      const qwen = await DispatcherService.getProviderForModel("qwen/qwen3-235b-a22b");
+      expect(qwen).not.toBeNull();
+      if (!qwen) throw new Error("expected selection");
+      expect(qwen.provider.id).toBe(provider.id);
+      expect([
+        "qwen/qwen3-235b-a22b",
+        "qwen/qwen3-235b-a22b-instruct-2507",
+        "qwen/qwen3-235b-a22b-thinking-2507"
+      ]).toContain(qwen.resolvedModel);
 
       global.fetch = originalFetch;
     });

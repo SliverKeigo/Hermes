@@ -16,6 +16,12 @@ const VARIANT_TOKENS = new Set([
   "pro",
   "ultra",
   "think",
+  "thinking",
+  "instruct",
+  "chat",
+  "online",
+  "beta",
+  "preview",
 ]);
 
 export type VersionParts = number[];
@@ -51,13 +57,19 @@ const compareVersionParts = (a: VersionParts, b: VersionParts): number => {
 // - familyKey: 移除版本與變體，便於將同一系列聚合
 export function normalizeModelName(raw: string): NormalizedModel {
   const cleaned = raw.trim().replace(PREFIX_REGEX, "").toLowerCase();
-  const tokens = cleaned.split(SEPARATOR_REGEX).filter(Boolean);
+  // 去掉廠商前綴 (如 openai/, meta/, qwen/)
+  const withoutVendor = cleaned.includes("/") ? cleaned.split("/").pop() || cleaned : cleaned;
+  const tokens = withoutVendor.split(SEPARATOR_REGEX).filter(Boolean);
 
   const versionTokens: VersionParts[] = [];
   const canonicalTokens: string[] = [];
   const familyTokens: string[] = [];
 
   for (const token of tokens) {
+    // 長數字（如日期/批次號 2507）視為變體標記，避免污染 canonical
+    const isLongNumericTag = /^\d{4,}$/.test(token);
+    if (isLongNumericTag) continue;
+
     const version = parseVersion(token);
     if (version) {
       versionTokens.push(version);
@@ -75,11 +87,17 @@ export function normalizeModelName(raw: string): NormalizedModel {
   // 若未檢出版本，versionParts 為空；若有多個，取第一個
   const versionParts = versionTokens[0] ?? [];
 
+  const canonicalBase = canonicalTokens.join("-");
+  const familyBase = familyTokens.join("-");
+
+  const canonical = canonicalBase || withoutVendor;
+  const familyKey = familyBase || withoutVendor;
+
   return {
     raw,
     cleaned,
-    canonical: canonicalTokens.join("-"),
-    familyKey: familyTokens.join("-"),
+    canonical,
+    familyKey,
     versionParts,
   };
 }
