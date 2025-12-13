@@ -222,15 +222,16 @@ export class ProviderManagerService {
 
     try {
       const rawModels = await this.fetchModelsFromUpstream(provider.baseUrl, provider.apiKey);
+      const modelsToCheck = Array.from(new Set(rawModels)); // 同一模型只檢測一次
 
-      logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${rawModels.length}`);
+      logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${modelsToCheck.length}`);
 
       const validModels: string[] = [];
       const blacklist = provider.modelBlacklist || [];
       // 先清空模型列表
       this.updateProviderStatus(provider.id, 'syncing', []);
 
-      for (const model of rawModels) {
+      for (const model of modelsToCheck) {
         if (blacklist.includes(model)) {
           logger.info(`[黑名單跳過] provider=${provider.name} model=${model}`);
           continue;
