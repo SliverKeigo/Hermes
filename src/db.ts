@@ -20,6 +20,11 @@ const ensureProviderColumns = () => {
   if (!columnNames.includes("lastUsedAt")) {
     db.exec(`ALTER TABLE providers ADD COLUMN lastUsedAt INTEGER;`);
   }
+
+  // 模型黑名單
+  if (!columnNames.includes("modelBlacklist")) {
+    db.exec(`ALTER TABLE providers ADD COLUMN modelBlacklist TEXT DEFAULT '[]';`);
+  }
 };
 
 // 初始化表結構

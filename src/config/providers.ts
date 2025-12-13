@@ -5,6 +5,7 @@ export interface AIProvider {
   baseUrl: string;  // 上游 API 的基礎 URL
   apiKey: string;   // 用於該上游的 API Key
   models: string[]; // 經過篩選和驗證後的模型列表
+  modelBlacklist?: string[]; // 模型黑名單，這些模型將被跳過
   status: 'pending' | 'syncing' | 'active' | 'error'; // 同步狀態
   lastSyncedAt?: number; // 上次同步時間
   lastUsedAt?: number; // 最近成功同步或使用時間

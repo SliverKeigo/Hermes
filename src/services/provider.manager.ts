@@ -16,14 +16,16 @@ export class ProviderManagerService {
     // 反序列化 models 字段
     return results.map(row => ({
       ...row,
-      models: JSON.parse(row.models)
+      models: JSON.parse(row.models),
+      modelBlacklist: row.modelBlacklist ? JSON.parse(row.modelBlacklist) : []
     }));
   }
 
   // 添加提供商
-  static addProvider(name: string, baseUrl: string, apiKey: string): AIProvider {
+  static addProvider(name: string, baseUrl: string, apiKey: string, modelBlacklist: string[] = []): AIProvider {
     const id = crypto.randomUUID();
     const createdAt = Date.now();
+    const cleanedBlacklist = (modelBlacklist || []).map(m => m.trim()).filter(Boolean);
 
     const newProvider: AIProvider = {
       id,
@@ -31,14 +33,15 @@ export class ProviderManagerService {
       baseUrl: baseUrl.replace(/\/$/, ""),
       apiKey,
       models: [],
+      modelBlacklist: cleanedBlacklist,
       status: 'pending',
       createdAt,
     };
 
     // 插入數據庫
     db.exec(`
-      INSERT INTO providers (id, name, baseUrl, apiKey, models, status, createdAt)
-      VALUES ('${newProvider.id}', '${newProvider.name}', '${newProvider.baseUrl}', '${newProvider.apiKey}', '${JSON.stringify(newProvider.models)}', '${newProvider.status}', ${newProvider.createdAt})
+      INSERT INTO providers (id, name, baseUrl, apiKey, models, modelBlacklist, status, createdAt)
+      VALUES ('${newProvider.id}', '${newProvider.name}', '${newProvider.baseUrl}', '${newProvider.apiKey}', '${JSON.stringify(newProvider.models)}', '${JSON.stringify(newProvider.modelBlacklist)}', '${newProvider.status}', ${newProvider.createdAt})
     `);
 
     // 觸發後台同步 (這部分仍然是異步的，因為它確實是一個後台任務)
@@ -48,7 +51,7 @@ export class ProviderManagerService {
   }
 
   // 批量導入提供商配置，避免重複 name+baseUrl 的組合
-  static importProviders(rawProviders: { name: string; baseUrl: string; apiKey: string }[]) {
+  static importProviders(rawProviders: { name: string; baseUrl: string; apiKey: string; modelBlacklist?: string[] }[]) {
     if (!Array.isArray(rawProviders)) {
       throw new Error("providers must be an array");
     }
@@ -73,7 +76,7 @@ export class ProviderManagerService {
         continue;
       }
 
-      const created = this.addProvider(raw.name, normalizedBaseUrl, raw.apiKey);
+      const created = this.addProvider(raw.name, normalizedBaseUrl, raw.apiKey, raw.modelBlacklist || []);
       seenKeys.add(key);
       imported.push({ id: created.id, name: created.name });
     }
@@ -95,7 +98,7 @@ export class ProviderManagerService {
   }
 
   // 更新提供商信息並重新同步
-  static updateProvider(id: string, updates: { name?: string; baseUrl?: string; apiKey?: string }): AIProvider {
+  static updateProvider(id: string, updates: { name?: string; baseUrl?: string; apiKey?: string; modelBlacklist?: string[] }): AIProvider {
     const existingRow = db.query(`SELECT * FROM providers WHERE id = $id`).get({ $id: id }) as any;
     if (!existingRow) {
       throw new Error("Provider not found");
@@ -108,6 +111,9 @@ export class ProviderManagerService {
       baseUrl: sanitizedBaseUrl,
       apiKey: updates.apiKey ?? existingRow.apiKey,
       models: JSON.parse(existingRow.models || "[]"),
+      modelBlacklist: updates.modelBlacklist
+        ? updates.modelBlacklist.map(m => m.trim()).filter(Boolean)
+        : (existingRow.modelBlacklist ? JSON.parse(existingRow.modelBlacklist) : []),
       status: "pending",
     };
 
@@ -118,6 +124,7 @@ export class ProviderManagerService {
           apiKey = '${nextProvider.apiKey}',
           status = 'pending',
           models = '[]',
+          modelBlacklist = '${JSON.stringify(nextProvider.modelBlacklist)}',
           lastSyncedAt = NULL,
           lastUsedAt = ${Date.now()}
       WHERE id = '${id}'
@@ -137,6 +144,7 @@ export class ProviderManagerService {
     const provider: AIProvider = {
       ...row,
       models: JSON.parse(row.models || "[]"),
+      modelBlacklist: row.modelBlacklist ? JSON.parse(row.modelBlacklist) : []
     };
     this.backgroundSyncTask(provider);
   }
@@ -205,14 +213,18 @@ export class ProviderManagerService {
     try {
       const rawModels = await this.fetchModelsFromUpstream(provider.baseUrl, provider.apiKey);
 
-
       logger.info(`[後台任務] ${provider.name} 名稱篩選後候選數: ${rawModels.length}`);
 
       const validModels: string[] = [];
+      const blacklist = provider.modelBlacklist || [];
       // 先清空模型列表
       this.updateProviderStatus(provider.id, 'syncing', []);
 
       for (const model of rawModels) {
+        if (blacklist.includes(model)) {
+          logger.info(`[黑名單跳過] provider=${provider.name} model=${model}`);
+          continue;
+        }
         // 低 RPM 保護：5秒
         await new Promise(resolve => setTimeout(resolve, 5000));
 

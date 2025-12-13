@@ -21,7 +21,8 @@ export const AdminController = new Elysia({ prefix: "/admin" })
     const providers = ProviderManagerService.getAll().map(p => ({
       name: p.name,
       baseUrl: p.baseUrl,
-      apiKey: p.apiKey
+      apiKey: p.apiKey,
+      modelBlacklist: p.modelBlacklist ?? []
     }));
 
     return {
@@ -171,8 +172,8 @@ export const AdminController = new Elysia({ prefix: "/admin" })
   // 添加新的提供商
   .post("/providers", async ({ body, set }) => {
     try {
-      const { name, baseUrl, apiKey } = body;
-      const provider = ProviderManagerService.addProvider(name, baseUrl, apiKey);
+      const { name, baseUrl, apiKey, modelBlacklist } = body;
+      const provider = ProviderManagerService.addProvider(name, baseUrl, apiKey, modelBlacklist || []);
       return {
         success: true,
         data: provider
@@ -189,13 +190,14 @@ export const AdminController = new Elysia({ prefix: "/admin" })
     body: t.Object({
       name: t.String(),
       baseUrl: t.String(),
-      apiKey: t.String()
+      apiKey: t.String(),
+      modelBlacklist: t.Optional(t.Array(t.String()))
     })
   })
   // 批量導入提供商配置
   .post("/providers/import", ({ body, set }) => {
     try {
-      const { providers } = body as { providers: { name: string; baseUrl: string; apiKey: string }[] };
+      const { providers } = body as { providers: { name: string; baseUrl: string; apiKey: string; modelBlacklist?: string[] }[] };
       const result = ProviderManagerService.importProviders(providers);
       return { success: true, ...result };
     } catch (error: any) {
@@ -208,15 +210,16 @@ export const AdminController = new Elysia({ prefix: "/admin" })
       providers: t.Array(t.Object({
         name: t.String(),
         baseUrl: t.String(),
-        apiKey: t.String()
+        apiKey: t.String(),
+        modelBlacklist: t.Optional(t.Array(t.String()))
       }))
     })
   })
   // 更新提供商
   .patch("/providers/:id", ({ params, body, set }) => {
     try {
-      const { name, baseUrl, apiKey } = body as { name?: string; baseUrl?: string; apiKey?: string };
-      const updated = ProviderManagerService.updateProvider(params.id, { name, baseUrl, apiKey });
+      const { name, baseUrl, apiKey, modelBlacklist } = body as { name?: string; baseUrl?: string; apiKey?: string; modelBlacklist?: string[] };
+      const updated = ProviderManagerService.updateProvider(params.id, { name, baseUrl, apiKey, modelBlacklist });
       return { success: true, data: updated };
     } catch (error: any) {
       logger.error("更新提供商失敗", error);
@@ -227,7 +230,8 @@ export const AdminController = new Elysia({ prefix: "/admin" })
     body: t.Object({
       name: t.Optional(t.String()),
       baseUrl: t.Optional(t.String()),
-      apiKey: t.Optional(t.String())
+      apiKey: t.Optional(t.String()),
+      modelBlacklist: t.Optional(t.Array(t.String()))
     })
   })
   // 手動觸發重新同步/探活

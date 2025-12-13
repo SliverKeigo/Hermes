@@ -113,6 +113,10 @@
                     <label class="block text-sm font-medium text-gray-700 mb-1">API Key</label>
                     <input type="password" id="apiKey" placeholder="sk-..." class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent" required>
                 </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">模型黑名单（逗号分隔，可选）</label>
+                    <input type="text" id="modelBlacklist" placeholder="例: gpt-4o-mini,gpt-4-vision-preview" class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
                 <div class="bg-blue-50 p-3 rounded text-sm text-blue-700">
                     <i class="fa-solid fa-info-circle mr-1"></i> <span>添加后，系统将在后台自动异步检测并过滤可用模型。</span>
                 </div>
@@ -210,7 +214,10 @@
                     .map(p => ({
                         name: p?.name?.trim(),
                         baseUrl: p?.baseUrl?.trim(),
-                        apiKey: p?.apiKey?.trim()
+                        apiKey: p?.apiKey?.trim(),
+                        modelBlacklist: Array.isArray(p?.modelBlacklist)
+                          ? p.modelBlacklist.map((m: string) => (m || '').toString().trim()).filter(Boolean)
+                          : []
                     }))
                     .filter(p => p.name && p.baseUrl && p.apiKey);
 
@@ -325,6 +332,10 @@
                                             <label class="block text-xs text-gray-600 mb-1">API Key（留空则不变）</label>
                                             <input id="edit-apikey-${provider.id}" type="password" class="w-full px-3 py-2 border rounded-md text-sm" placeholder="sk-...">
                                         </div>
+                                        <div class="md:col-span-3">
+                                            <label class="block text-xs text-gray-600 mb-1">模型黑名单（逗号分隔）</label>
+                                            <input id="edit-blacklist-${provider.id}" class="w-full px-3 py-2 border rounded-md text-sm" value="${(provider.modelBlacklist || []).join(',')}">
+                                        </div>
                                     </div>
                                     <div class="flex gap-2">
                                         <button onclick="submitEditProvider('${provider.id}')" class="px-3 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm">保存并重新同步</button>
@@ -363,10 +374,14 @@
             btn.disabled = true;
             span.innerHTML = `<i class="fa-solid fa-circle-notch fa-spin mr-2"></i> 提交中...`;
 
+            const blacklistRaw = document.getElementById('modelBlacklist')?.value || "";
+            const modelBlacklist = blacklistRaw.split(',').map(s => s.trim()).filter(Boolean);
+
             const payload = {
                 name: document.getElementById('name').value,
                 baseUrl: document.getElementById('baseUrl').value,
-                apiKey: document.getElementById('apiKey').value
+                apiKey: document.getElementById('apiKey').value,
+                modelBlacklist
             };
 
             try {
@@ -412,11 +427,16 @@
             const nameInput = document.getElementById(`edit-name-${id}`);
             const baseUrlInput = document.getElementById(`edit-baseurl-${id}`);
             const apiKeyInput = document.getElementById(`edit-apikey-${id}`);
+            const blacklistInput = document.getElementById(`edit-blacklist-${id}`);
             const payload = {};
 
             if (nameInput && nameInput.value.trim()) payload.name = nameInput.value.trim();
             if (baseUrlInput && baseUrlInput.value.trim()) payload.baseUrl = baseUrlInput.value.trim();
             if (apiKeyInput && apiKeyInput.value.trim()) payload.apiKey = apiKeyInput.value.trim();
+            if (blacklistInput) {
+                const list = blacklistInput.value.split(',').map(v => v.trim()).filter(Boolean);
+                payload.modelBlacklist = list;
+            }
 
             if (Object.keys(payload).length === 0) {
                 alert("未修改任何字段");
