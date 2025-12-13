@@ -372,7 +372,13 @@ export class ProviderManagerService {
       throw new Error(`Upstream responded with ${response.status}`);
     }
 
-    const data = await response.json();
+    let data: any;
+    try {
+      data = await response.json();
+    } catch (err: any) {
+      logger.error(`[ProviderManager] 解析 /models 返回失敗 (非 JSON)，provider=${baseUrl} error=${err?.message || err}`);
+      throw new Error("Upstream /models response is not valid JSON");
+    }
     if (data && Array.isArray(data.data)) {
       return data.data.map((m: any) => m.id);
     }
