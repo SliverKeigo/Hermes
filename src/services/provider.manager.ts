@@ -313,7 +313,7 @@ export class ProviderManagerService {
           "Content-Type": "application/json"
         },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: probeMessage }]}],
+          contents: [{ role: "user", parts: [{ text: probeMessage }]}],
           generationConfig: { maxOutputTokens: 1 }
         })
       });
