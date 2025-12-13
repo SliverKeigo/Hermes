@@ -235,6 +235,10 @@ export class ProviderManagerService {
           logger.info(`[黑名單跳過] provider=${provider.name} model=${model}`);
           continue;
         }
+        if (this.isNonChatModel(model)) {
+          logger.info(`[非聊天模型跳過] provider=${provider.name} model=${model}`);
+          continue;
+        }
         // 低 RPM 保護：5秒
         await new Promise(resolve => setTimeout(resolve, 5000));
 
@@ -290,6 +294,11 @@ export class ProviderManagerService {
     }
   }
 
+  private static isNonChatModel(model: string): boolean {
+    const lower = model.toLowerCase();
+    return lower.includes("embedding") || lower.includes("embed");
+  }
+
   // 驗證模型 (Probe)
   private static async verifyModel(baseUrl: string, apiKey: string, model: string): Promise<{ ok: boolean; status?: number; errorText?: string }> {
     const url = `${baseUrl}/chat/completions`;
@@ -303,7 +312,10 @@ export class ProviderManagerService {
         },
         body: JSON.stringify({
           model: model,
-          messages: [{ role: "system", content: probeMessage }],
+          messages: [{
+            role: "user",
+            content: [{ type: "text", text: probeMessage }]
+          }],
           max_tokens: 1
         })
       });
@@ -312,11 +324,6 @@ export class ProviderManagerService {
       }
 
       const text = await response.text();
-      // 若上游提示缺少 contents 字段，嘗試 Gemini 風格的備援探活
-      if (text.toLowerCase().includes("contents") || text.toLowerCase().includes("generatecontent")) {
-        const geminiResult = await this.verifyModelGemini(baseUrl, apiKey, model, probeMessage);
-        if (geminiResult.ok) return geminiResult;
-      }
       return { ok: false, status: response.status, errorText: text };
     } catch (error: any) {
       return { ok: false, errorText: error?.message || "network_error" };
