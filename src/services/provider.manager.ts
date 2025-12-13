@@ -16,9 +16,19 @@ export class ProviderManagerService {
     // 反序列化 models 字段
     return results.map(row => ({
       ...row,
-      models: JSON.parse(row.models),
-      modelBlacklist: row.modelBlacklist ? JSON.parse(row.modelBlacklist) : []
+      models: this.safeParseArray(row.models),
+      modelBlacklist: this.safeParseArray(row.modelBlacklist)
     }));
+  }
+
+  private static safeParseArray(value: any): string[] {
+    if (!value) return [];
+    try {
+      const parsed = typeof value === "string" ? JSON.parse(value) : value;
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
   }
 
   // 添加提供商
