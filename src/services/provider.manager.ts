@@ -271,7 +271,7 @@ export class ProviderManagerService {
   // 驗證模型 (Probe)
   private static async verifyModel(baseUrl: string, apiKey: string, model: string): Promise<{ ok: boolean; status?: number; errorText?: string }> {
     const url = `${baseUrl}/chat/completions`;
-    const probeMessage = "healthcheck for connectivity, respond with ok"; // 避免敏感詞的探活提示
+    const probeMessage = "Quick check: in React, what does useEffect do? Reply 'ok' if you see this."; // 提問技術問題，避免敏感詞
     try {
       const response = await fetch(url, {
         method: "POST",
