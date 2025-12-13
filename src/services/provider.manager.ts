@@ -8,6 +8,7 @@ import { DispatcherService } from "./dispatcher.service"; // [NEW] 導入 Dispat
 // 提供商管理服務 (Provider Manager Service) - SQLite 版 (同步版)
 export class ProviderManagerService {
   private static periodicSyncIntervalId: Timer | undefined; // 使用 Timer 類型
+  private static syncing = new Set<string>(); // 當前正在同步的 provider
 
   // 獲取所有提供商
   static getAll(): AIProvider[] {
@@ -216,6 +217,11 @@ export class ProviderManagerService {
 
   // 後台異步任務 (仍然是異步的)
   private static async backgroundSyncTask(provider: AIProvider) {
+    if (this.syncing.has(provider.id)) {
+      logger.info(`[後台任務] ${provider.name} 同步已在進行，跳過重複觸發`);
+      return;
+    }
+    this.syncing.add(provider.id);
     logger.info(`[後台任務] 開始為 ${provider.name} 同步模型...`);
 
     this.updateProviderStatus(provider.id, 'syncing');
@@ -292,6 +298,9 @@ export class ProviderManagerService {
         result: 'failure',
         message: `Sync process failed: ${error.message}`
       });
+    }
+    finally {
+      this.syncing.delete(provider.id);
     }
   }
 
