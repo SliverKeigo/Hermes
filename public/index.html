@@ -216,7 +216,7 @@
                         baseUrl: p?.baseUrl?.trim(),
                         apiKey: p?.apiKey?.trim(),
                         modelBlacklist: Array.isArray(p?.modelBlacklist)
-                          ? p.modelBlacklist.map((m: string) => (m || '').toString().trim()).filter(Boolean)
+                          ? p.modelBlacklist.map((m) => (m || '').toString().trim()).filter(Boolean)
                           : []
                     }))
                     .filter(p => p.name && p.baseUrl && p.apiKey);
@@ -254,7 +254,13 @@
 
             try {
                 const res = await fetch(`${API_BASE}/providers`);
+                if (!res.ok) {
+                    throw new Error(`获取列表失败 (${res.status})`);
+                }
                 const { data } = await res.json();
+                if (!Array.isArray(data)) {
+                    throw new Error('接口返回数据格式异常');
+                }
 
                 countBadge.innerText = `${data.length}`;
                 list.innerHTML = '';
@@ -359,8 +365,11 @@
                     list.appendChild(el);
                 });
             } catch (err) {
-                console.error(err);
-                // 靜默失敗，因為是輪詢
+                console.error('加载服务站失败', err);
+                list.innerHTML = `<div class="text-center py-6 text-red-600 bg-red-50 border border-red-100 rounded">
+                    <p>加载失败：${err?.message || err}</p>
+                    <button onclick="fetchProviders()" class="mt-2 text-sm px-3 py-1 bg-white border border-red-200 rounded hover:bg-red-100">重试</button>
+                </div>`;
             }
         }
 
@@ -475,7 +484,7 @@
                 alert(`重同步失败：${err.message}`);
             }
         };
-        fetchProviders();
+        window.addEventListener('load', fetchProviders);
 
     </script>
 </body>
