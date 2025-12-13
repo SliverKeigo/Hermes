@@ -285,6 +285,38 @@ export class ProviderManagerService {
           max_tokens: 1
         })
       });
+      if (response.ok) {
+        return { ok: true, status: response.status };
+      }
+
+      const text = await response.text();
+      // 若上游提示缺少 contents 字段，嘗試 Gemini 風格的備援探活
+      if (text.toLowerCase().includes("contents") || text.toLowerCase().includes("generatecontent")) {
+        const geminiResult = await this.verifyModelGemini(baseUrl, apiKey, model, probeMessage);
+        if (geminiResult.ok) return geminiResult;
+      }
+      return { ok: false, status: response.status, errorText: text };
+    } catch (error: any) {
+      return { ok: false, errorText: error?.message || "network_error" };
+    }
+  }
+
+  // 針對需要 Gemini contents 格式的上游的探活
+  private static async verifyModelGemini(baseUrl: string, apiKey: string, model: string, probeMessage: string) {
+    const trimmed = baseUrl.replace(/\/+$/, "");
+    const url = `${trimmed}/models/${model}:generateContent`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: probeMessage }]}],
+          generationConfig: { maxOutputTokens: 1 }
+        })
+      });
       if (!response.ok) {
         const text = await response.text();
         return { ok: false, status: response.status, errorText: text };
