@@ -1,6 +1,6 @@
 # Hermes (赫爾墨斯) - AI API Gateway & Aggregator
 
-**Hermes** 是一個高性能、輕量級的 AI API 網關與聚合器，旨在為開發者提供統一的 OpenAI 兼容接口，以便輕鬆管理和路由多個上游 AI 服務提供商（如 OpenAI, Anthropic, Google Gemini, Groq 等）。
+**Hermes** 是一個高性能、輕量級的 AI API 網關與聚合器，旨在為開發者提供統一的 OpenAI 兼容接口，以便輕鬆管理和路由多個支持 OpenAI 協議的上游 AI 服務提供商（如 OpenAI, Google Gemini, Groq, DeepSeek 等）。
 
 它集成了智能路由、負載均衡、健康檢查和實時日誌監控功能，確保服務的高可用性與低延遲。
 
@@ -156,13 +156,6 @@ curl http://localhost:3000/v1/chat/completions \
     "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
-
-## 技術棧
-
-*   **Runtime**: [Bun](https://bun.sh) (極速 JavaScript 運行時)
-*   **Framework**: [ElysiaJS](https://elysiajs.com) (高性能 Web 框架)
-*   **Database**: SQLite (via `bun:sqlite`)
-*   **Frontend**: HTML5, Tailwind CSS (via CDN)
 
 ## 許可證
 

@@ -7,7 +7,7 @@ import { DispatcherService } from "./dispatcher.service"; // [NEW] 導入 Dispat
 
 // 提供商管理服務 (Provider Manager Service) - SQLite 版 (同步版)
 export class ProviderManagerService {
-  private static periodicSyncIntervalId: Timer | undefined; // 使用 Timer 類型
+  private static periodicSyncIntervalId: ReturnType<typeof setInterval> | undefined; // 使用 Timer 類型
   private static syncing = new Set<string>(); // 當前正在同步的 provider
 
   // 獲取所有提供商
