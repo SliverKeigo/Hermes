@@ -162,7 +162,7 @@ curl http://localhost:3000/v1/chat/completions \
 *   **Runtime**: [Bun](https://bun.sh) (極速 JavaScript 運行時)
 *   **Framework**: [ElysiaJS](https://elysiajs.com) (高性能 Web 框架)
 *   **Database**: SQLite (via `bun:sqlite`)
-*   **Frontend**: HTML5, Tailwind CSS (via CDN), Alpine.js (推測)
+*   **Frontend**: HTML5, Tailwind CSS (via CDN)
 
 ## 許可證
 
