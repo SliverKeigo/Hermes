@@ -1,0 +1,29 @@
+name: "Close stale issues"
+on:
+  schedule:
+    - cron: "30 1 * * *" # 每天凌晨 1:30 運行
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  # pull-requests: write # 不需要處理 PR 權限
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          
+          # Issue 配置 (啟用)
+          days-before-stale: 7
+          days-before-close: 1
+          stale-issue-message: '此 Issue 已經 7 天未有活動，已被標記為過期。如果仍未更新，將在 1 天後自動關閉。'
+          close-issue-message: '由於長時間未有活動，此 Issue 已被自動關閉。'
+          stale-issue-label: 'stale'
+          exempt-issue-labels: 'pinned,security,enhancement'
+          
+          # PR 配置 (禁用)
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
