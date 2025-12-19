@@ -37,7 +37,7 @@ const app = new Elysia()
     store.startTime = performance.now();
   })
   // 全局請求日誌中間件 (Global Request Logger)
-  .onAfterResponse(({ request, set, store, body }) => {
+  .onAfterResponse(({ request, set, store, body, response }) => {
     // 只記錄 /v1/chat/completions 路徑的日誌
     const requestPath = new URL(request.url).pathname;
     if (requestPath !== "/v1/chat/completions") return;
@@ -53,14 +53,22 @@ const app = new Elysia()
         }
     } catch { /* ignore */ }
 
-    logger.info(`[${set.status}] ${request.method} ${request.url} - ${duration}ms`);
+    // [Fix] 優先從 response 對象中獲取狀態碼，因為當 Controller 直接返回 Response 時，set.status 可能未更新
+    let status = 200;
+    if (response instanceof Response) {
+        status = response.status;
+    } else if (typeof set.status === 'number') {
+        status = set.status;
+    }
+
+    logger.info(`[${status}] ${request.method} ${request.url} - ${duration}ms`);
 
     // 持久化日誌
     LogService.logRequest({
         method: request.method,
         path: requestPath,
         model,
-        status: typeof set.status === 'number' ? set.status : 200,
+        status,
         duration,
         ip
     });
