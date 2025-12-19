@@ -2,6 +2,8 @@ import { Elysia, t } from "elysia";
 import { ProviderManagerService } from "../services/provider.manager";
 import { LogService } from "../services/log.service";
 import { AuthService } from "../services/auth.service"; // [NEW] 導入 AuthService
+import { DispatcherService } from "../services/dispatcher.service";
+import { ConfigService } from "../services/config.service";
 import { logger } from "../utils/logger";
 import { RequestLogFilters, SyncLogFilters } from "../types";
 import { config } from "../config";
@@ -167,6 +169,48 @@ export const AdminController = new Elysia({ prefix: "/admin" })
     body: t.Object({
       description: t.Optional(t.String()),
       key: t.Optional(t.String()) // 允許手動提供密鑰
+    })
+  })
+  // [NEW] 獲取分發器配置
+  .get("/settings/dispatcher", () => {
+    return {
+      initialPenaltyMs: DispatcherService.INITIAL_PENALTY_MS,
+      maxPenaltyMs: DispatcherService.MAX_PENALTY_MS,
+      resyncThreshold: DispatcherService.RESYNC_THRESHOLD,
+      resyncCooldownMs: DispatcherService.RESYNC_COOLDOWN_MS
+    };
+  })
+  // [NEW] 設置分發器配置
+  .post("/settings/dispatcher", ({ body }) => {
+    const { initialPenaltyMs, maxPenaltyMs, resyncThreshold, resyncCooldownMs } = body as any;
+    if (initialPenaltyMs) ConfigService.set("dispatcher_initial_penalty_ms", String(initialPenaltyMs));
+    if (maxPenaltyMs) ConfigService.set("dispatcher_max_penalty_ms", String(maxPenaltyMs));
+    if (resyncThreshold) ConfigService.set("dispatcher_resync_threshold", String(resyncThreshold));
+    if (resyncCooldownMs) ConfigService.set("dispatcher_resync_cooldown_ms", String(resyncCooldownMs));
+    return { success: true };
+  }, {
+    body: t.Object({
+      initialPenaltyMs: t.Optional(t.Numeric()),
+      maxPenaltyMs: t.Optional(t.Numeric()),
+      resyncThreshold: t.Optional(t.Numeric()),
+      resyncCooldownMs: t.Optional(t.Numeric())
+    })
+  })
+  // [NEW] 獲取當前冷卻中的模型
+  .get("/dispatcher/cooldowns", () => {
+    return {
+      data: DispatcherService.getCooldowns()
+    };
+  })
+  // [NEW] 清除模型冷卻
+  .post("/dispatcher/cooldowns/clear", ({ body }) => {
+    const { providerId, modelName } = body as { providerId: string, modelName: string };
+    DispatcherService.clearCooldown(providerId, modelName);
+    return { success: true };
+  }, {
+    body: t.Object({
+      providerId: t.String(),
+      modelName: t.String()
     })
   })
   // 添加新的提供商
