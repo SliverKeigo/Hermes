@@ -2,6 +2,7 @@ import { AIProvider } from "../config/providers";
 import { ProviderManagerService } from "./provider.manager"; // [NEW] 引入管理器
 import { logger } from "../utils/logger";
 import { LogService } from "./log.service";
+import { ConfigService } from "./config.service";
 import { buildModelAliasMaps, normalizeModelName } from "../utils/model-normalizer";
 import { RoutingScoreService } from "./routing.score.service";
 
@@ -10,12 +11,27 @@ import { RoutingScoreService } from "./routing.score.service";
 type Cooldown = { until: number; backoffMs: number; force?: boolean };
 
 export class DispatcherService {
-  private static readonly INITIAL_PENALTY_MS = 30 * 60_000; // 30 分鐘
-  private static readonly MAX_PENALTY_MS = 4 * 60 * 60_000; // 最長 4 小時
-  private static readonly RESYNC_THRESHOLD = 3; // 觸發重同步的累計懲罰次數
-  private static readonly RESYNC_COOLDOWN_MS = 10 * 60_000; // 重同步觸發間隔，避免頻繁
+  static get INITIAL_PENALTY_MS() { return ConfigService.getNumber("dispatcher_initial_penalty_ms", 30 * 60_000)!; }
+  static get MAX_PENALTY_MS() { return ConfigService.getNumber("dispatcher_max_penalty_ms", 4 * 60 * 60_000)!; }
+  static get RESYNC_THRESHOLD() { return ConfigService.getNumber("dispatcher_resync_threshold", 3)!; }
+  static get RESYNC_COOLDOWN_MS() { return ConfigService.getNumber("dispatcher_resync_cooldown_ms", 10 * 60_000)!; }
+
   private static cooldowns = new Map<string, Cooldown>(); // key: providerId:model
   private static penaltyCounts = new Map<string, { count: number; lastResync?: number }>();
+
+  static getCooldowns() {
+    return Array.from(this.cooldowns.entries()).map(([key, val]) => {
+      const [providerId, modelName] = key.split(':');
+      return {
+        providerId,
+        providerName: ProviderManagerService.getAll().find(p => p.id === providerId)?.name || providerId,
+        modelName,
+        until: val.until,
+        backoffMs: val.backoffMs,
+        remainingMs: Math.max(0, val.until - Date.now())
+      };
+    }).sort((a, b) => b.remainingMs - a.remainingMs);
+  }
 
   private static key(providerId: string, modelName: string) {
     return `${providerId}:${modelName}`;
